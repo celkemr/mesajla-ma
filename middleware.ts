@@ -36,6 +36,7 @@ export async function middleware(req: NextRequest) {
   if (
     pathname === '/login' ||
     pathname.startsWith('/api/receive') ||
+    pathname.startsWith('/api/chat') ||
     pathname.startsWith('/api/auth') ||
     pathname.startsWith('/_next') ||
     pathname === '/favicon.ico' ||

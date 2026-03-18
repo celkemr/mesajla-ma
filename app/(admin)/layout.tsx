@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 
 const navItems = [
   { href: '/', label: 'Gösterge Paneli', icon: '📊' },
+  { href: '/conversations', label: 'Konuşmalar', icon: '🤖' },
   { href: '/messages', label: 'Mesajlar', icon: '💬' },
   { href: '/sites', label: 'Siteler', icon: '🌐' },
   { href: '/users', label: 'Kullanıcılar', icon: '👤' },

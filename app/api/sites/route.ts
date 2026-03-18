@@ -6,10 +6,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, domain } = await req.json();
+  const { name, domain, botName, systemPrompt } = await req.json();
   if (!name?.trim() || !domain?.trim()) {
     return NextResponse.json({ error: 'name and domain are required' }, { status: 400 });
   }
-  const site = createSite(name.trim(), domain.trim());
+  const site = createSite(name.trim(), domain.trim(), botName?.trim(), systemPrompt?.trim());
   return NextResponse.json(site);
 }

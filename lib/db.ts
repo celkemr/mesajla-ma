@@ -24,6 +24,8 @@ function initSchema() {
       name TEXT NOT NULL,
       domain TEXT NOT NULL,
       api_key TEXT NOT NULL UNIQUE,
+      bot_name TEXT NOT NULL DEFAULT 'Asistan',
+      system_prompt TEXT NOT NULL DEFAULT 'Sen yardımcı bir asistansın.',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -54,7 +56,32 @@ function initSchema() {
       password_hash TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      site_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      visitor_name TEXT,
+      visitor_email TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS chat_messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
+    );
   `);
+
+  // Mevcut sites tablosuna yeni kolonları ekle (varsa hata vermez)
+  try { db.exec(`ALTER TABLE sites ADD COLUMN bot_name TEXT NOT NULL DEFAULT 'Asistan'`); } catch {}
+  try { db.exec(`ALTER TABLE sites ADD COLUMN system_prompt TEXT NOT NULL DEFAULT 'Sen yardımcı bir asistansın.'`); } catch {}
 
   // Varsayılan admin kullanıcısı yoksa oluştur
   const count = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
@@ -79,17 +106,34 @@ export function getAllSites() {
 }
 
 export function getSiteByApiKey(apiKey: string) {
-  return getDb().prepare('SELECT * FROM sites WHERE api_key = ?').get(apiKey);
+  return getDb().prepare('SELECT * FROM sites WHERE api_key = ?').get(apiKey) as Site | undefined;
 }
 
 export function getSiteById(id: string) {
+  return getDb().prepare('SELECT * FROM sites WHERE id = ?').get(id) as Site | undefined;
+}
+
+export interface Site {
+  id: string;
+  name: string;
+  domain: string;
+  api_key: string;
+  bot_name: string;
+  system_prompt: string;
+  created_at: string;
+}
+
+export function createSite(name: string, domain: string, botName = 'Asistan', systemPrompt = 'Sen yardımcı bir asistansın.') {
+  const id = uuidv4();
+  const apiKey = `mk_${uuidv4().replace(/-/g, '')}`;
+  getDb().prepare('INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, domain, apiKey, botName, systemPrompt);
   return getDb().prepare('SELECT * FROM sites WHERE id = ?').get(id);
 }
 
-export function createSite(name: string, domain: string) {
-  const id = uuidv4();
-  const apiKey = `mk_${uuidv4().replace(/-/g, '')}`;
-  getDb().prepare('INSERT INTO sites (id, name, domain, api_key) VALUES (?, ?, ?, ?)').run(id, name, domain, apiKey);
+export function updateSite(id: string, data: { bot_name?: string; system_prompt?: string }) {
+  const fields = Object.keys(data).map(k => `${k} = ?`).join(', ');
+  const values = Object.values(data);
+  getDb().prepare(`UPDATE sites SET ${fields} WHERE id = ?`).run(...values, id);
   return getDb().prepare('SELECT * FROM sites WHERE id = ?').get(id);
 }
 
@@ -156,6 +200,97 @@ export function createReply(messageId: string, content: string) {
   return getDb().prepare('SELECT * FROM replies WHERE id = ?').get(id);
 }
 
+// --- Conversations ---
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+export interface Conversation {
+  id: string;
+  site_id: string;
+  session_id: string;
+  visitor_name: string | null;
+  visitor_email: string | null;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export function getAllConversations(filters: { siteId?: string; status?: string } = {}) {
+  let query = `
+    SELECT c.*, s.name as site_name, s.domain as site_domain,
+    COUNT(cm.id) as message_count,
+    MAX(cm.created_at) as last_message_at
+    FROM conversations c
+    JOIN sites s ON s.id = c.site_id
+    LEFT JOIN chat_messages cm ON cm.conversation_id = c.id
+    WHERE 1=1
+  `;
+  const params: string[] = [];
+  if (filters.siteId) { query += ' AND c.site_id = ?'; params.push(filters.siteId); }
+  if (filters.status) { query += ' AND c.status = ?'; params.push(filters.status); }
+  query += ' GROUP BY c.id ORDER BY c.updated_at DESC';
+  return getDb().prepare(query).all(...params);
+}
+
+export function getConversationById(id: string) {
+  const conv = getDb().prepare(`
+    SELECT c.*, s.name as site_name, s.domain as site_domain, s.bot_name
+    FROM conversations c JOIN sites s ON s.id = c.site_id
+    WHERE c.id = ?
+  `).get(id);
+  if (!conv) return null;
+  const messages = getDb().prepare('SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC').all(id);
+  return { ...(conv as object), messages };
+}
+
+export function getOrCreateConversation(siteId: string, sessionId: string) {
+  let conv = getDb().prepare('SELECT * FROM conversations WHERE session_id = ? AND site_id = ?').get(sessionId, siteId) as Conversation | undefined;
+  if (!conv) {
+    const id = uuidv4();
+    getDb().prepare('INSERT INTO conversations (id, site_id, session_id) VALUES (?, ?, ?)').run(id, siteId, sessionId);
+    conv = getDb().prepare('SELECT * FROM conversations WHERE id = ?').get(id) as Conversation;
+  }
+  return conv;
+}
+
+export function updateConversationVisitor(id: string, data: { visitor_name?: string; visitor_email?: string }) {
+  if (data.visitor_name) getDb().prepare('UPDATE conversations SET visitor_name = ? WHERE id = ?').run(data.visitor_name, id);
+  if (data.visitor_email) getDb().prepare('UPDATE conversations SET visitor_email = ? WHERE id = ?').run(data.visitor_email, id);
+}
+
+export function addChatMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
+  const id = uuidv4();
+  getDb().prepare('INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)').run(id, conversationId, role, content);
+  getDb().prepare("UPDATE conversations SET updated_at = datetime('now'), status = 'active' WHERE id = ?").run(conversationId);
+  return getDb().prepare('SELECT * FROM chat_messages WHERE id = ?').get(id);
+}
+
+export function getConversationMessages(conversationId: string) {
+  return getDb().prepare('SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC').all(conversationId) as ChatMessage[];
+}
+
+export function updateConversationStatus(id: string, status: string) {
+  return getDb().prepare('UPDATE conversations SET status = ? WHERE id = ?').run(status, id);
+}
+
+export function deleteConversation(id: string) {
+  return getDb().prepare('DELETE FROM conversations WHERE id = ?').run(id);
+}
+
+export function getConversationStats() {
+  const db = getDb();
+  return {
+    total: (db.prepare('SELECT COUNT(*) as c FROM conversations').get() as { c: number }).c,
+    active: (db.prepare("SELECT COUNT(*) as c FROM conversations WHERE status = 'active'").get() as { c: number }).c,
+    closed: (db.prepare("SELECT COUNT(*) as c FROM conversations WHERE status = 'closed'").get() as { c: number }).c,
+  };
+}
+
 // --- Users ---
 export function getAllUsers() {
   return getDb().prepare('SELECT id, username, created_at FROM users ORDER BY created_at ASC').all();
@@ -188,5 +323,7 @@ export function getStats() {
     unread: (db.prepare("SELECT COUNT(*) as c FROM messages WHERE status = 'unread'").get() as { c: number }).c,
     replied: (db.prepare("SELECT COUNT(*) as c FROM messages WHERE status = 'replied'").get() as { c: number }).c,
     sites: (db.prepare('SELECT COUNT(*) as c FROM sites').get() as { c: number }).c,
+    conversations: (db.prepare('SELECT COUNT(*) as c FROM conversations').get() as { c: number }).c,
+    activeConversations: (db.prepare("SELECT COUNT(*) as c FROM conversations WHERE status = 'active'").get() as { c: number }).c,
   };
 }
