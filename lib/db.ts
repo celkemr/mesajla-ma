@@ -18,7 +18,6 @@ export function getDb(): Database.Database {
 }
 
 function initSchema() {
-  const db = getDb();
   db.exec(`
     CREATE TABLE IF NOT EXISTS sites (
       id TEXT PRIMARY KEY,
