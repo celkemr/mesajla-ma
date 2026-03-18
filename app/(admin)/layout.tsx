@@ -1,15 +1,22 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const navItems = [
   { href: '/', label: 'Gösterge Paneli', icon: '📊' },
   { href: '/messages', label: 'Mesajlar', icon: '💬' },
   { href: '/sites', label: 'Siteler', icon: '🌐' },
+  { href: '/users', label: 'Kullanıcılar', icon: '👤' },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -38,9 +45,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             );
           })}
         </nav>
-        <div className="p-4 border-t border-slate-700">
-          <p className="text-slate-500 text-xs">API Endpoint</p>
-          <code className="text-slate-400 text-xs block mt-1 break-all">/api/receive</code>
+        <div className="p-4 border-t border-slate-700 space-y-3">
+          <div>
+            <p className="text-slate-500 text-xs">API Endpoint</p>
+            <code className="text-slate-400 text-xs block mt-1 break-all">/api/receive</code>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="w-full text-left text-sm text-slate-400 hover:text-white px-3 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+          >
+            🚪 Çıkış Yap
+          </button>
         </div>
       </aside>
 

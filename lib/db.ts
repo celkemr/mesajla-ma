@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import { hashPassword } from './auth';
 
 const DB_PATH = path.join(process.cwd(), 'data.db');
 
@@ -47,7 +48,22 @@ function initSchema() {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+
+  // Varsayılan admin kullanıcısı yoksa oluştur
+  const count = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
+  if (count === 0) {
+    const id = uuidv4();
+    const hash = hashPassword('admin123');
+    db.prepare('INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(id, 'admin', hash);
+  }
 }
 
 // --- Sites ---
@@ -139,6 +155,30 @@ export function createReply(messageId: string, content: string) {
   getDb().prepare('INSERT INTO replies (id, message_id, content) VALUES (?, ?, ?)').run(id, messageId, content);
   updateMessageStatus(messageId, 'replied');
   return getDb().prepare('SELECT * FROM replies WHERE id = ?').get(id);
+}
+
+// --- Users ---
+export function getAllUsers() {
+  return getDb().prepare('SELECT id, username, created_at FROM users ORDER BY created_at ASC').all();
+}
+
+export function getUserByUsername(username: string) {
+  return getDb().prepare('SELECT * FROM users WHERE username = ?').get(username) as { id: string; username: string; password_hash: string } | undefined;
+}
+
+export function createUser(username: string, password: string) {
+  const id = uuidv4();
+  const hash = hashPassword(password);
+  getDb().prepare('INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(id, username, hash);
+  return getDb().prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(id);
+}
+
+export function deleteUser(id: string) {
+  return getDb().prepare('DELETE FROM users WHERE id = ?').run(id);
+}
+
+export function getUserCount() {
+  return (getDb().prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
 }
 
 // --- Stats ---
