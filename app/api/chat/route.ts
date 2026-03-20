@@ -24,10 +24,6 @@ export async function POST(req: NextRequest) {
   const site = await getSiteByApiKey(apiKey);
   if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401, headers: corsHeaders });
 
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: 'OpenAI API anahtarı sunucuda tanımlı değil' }, { status: 500, headers: corsHeaders });
-  }
-
   const { message, sessionId, visitorName, visitorEmail } = await req.json();
   if (!message || !sessionId) {
     return NextResponse.json({ error: 'message ve sessionId gerekli' }, { status: 400, headers: corsHeaders });
@@ -40,6 +36,10 @@ export async function POST(req: NextRequest) {
   }
 
   await addChatMessage(conversation.id, 'user', message);
+
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ reply: 'Bot henüz yapılandırılmadı. Lütfen yönetici ile iletişime geçin.', conversationId: conversation.id }, { headers: corsHeaders });
+  }
 
   const history = await getConversationMessages(conversation.id);
   const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
