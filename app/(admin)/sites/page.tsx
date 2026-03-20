@@ -24,6 +24,11 @@ export default function SitesPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editBotName, setEditBotName] = useState('');
   const [editPrompt, setEditPrompt] = useState('');
+  const [panelUrl, setPanelUrl] = useState('https://panel.siteniz.com');
+
+  useEffect(() => {
+    setPanelUrl(window.location.origin);
+  }, []);
 
   function load() {
     fetch('/api/sites').then((r) => r.json()).then(setSites);
@@ -215,7 +220,7 @@ export default function SitesPage() {
               <div className="mt-4">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Chatbot Entegrasyon Kodu</p>
                 <pre className="text-xs bg-slate-900 text-green-400 p-4 rounded-lg overflow-x-auto leading-relaxed">{`<!-- Sitenizin </body> kapanış etiketinden önce ekleyin -->
-<script src="https://PANEL_ADRESINIZ/widget.js"></script>
+<script src="${panelUrl}/widget.js"></script>
 <script>
   MesajPanel.init({
     apiKey: "${site.api_key}",
@@ -224,9 +229,6 @@ export default function SitesPage() {
     welcomeMessage: "Merhaba! Size nasıl yardımcı olabilirim?"
   });
 </script>`}</pre>
-                <p className="text-xs text-slate-400 mt-2">
-                  💡 <strong>PANEL_ADRESINIZ</strong> → panelin çalıştığı adres (örn: <code>https://panel.siteniz.com</code>)
-                </p>
               </div>
             </div>
           ))
