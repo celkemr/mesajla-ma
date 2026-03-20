@@ -1,24 +1,26 @@
-import Database from 'better-sqlite3';
-import path from 'path';
+import { createClient, Client, InValue } from '@libsql/client';
 import { v4 as uuidv4 } from 'uuid';
 import { hashPassword } from './auth';
 
-const DB_PATH = path.join(process.cwd(), 'data.db');
+let _client: Client | null = null;
+let _initialized = false;
 
-let db: Database.Database;
-
-export function getDb(): Database.Database {
-  if (!db) {
-    db = new Database(DB_PATH);
-    db.pragma('journal_mode = WAL');
-    db.pragma('foreign_keys = ON');
-    initSchema();
+function getClient(): Client {
+  if (!_client) {
+    _client = createClient({
+      url: process.env.TURSO_DATABASE_URL!,
+      authToken: process.env.TURSO_AUTH_TOKEN,
+    });
   }
-  return db;
+  return _client;
 }
 
-function initSchema() {
-  db.exec(`
+async function ensureInit(): Promise<void> {
+  if (_initialized) return;
+  _initialized = true;
+  const c = getClient();
+
+  await c.executeMultiple(`
     CREATE TABLE IF NOT EXISTS sites (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -79,40 +81,39 @@ function initSchema() {
     );
   `);
 
-  // Mevcut sites tablosuna yeni kolonları ekle (varsa hata vermez)
-  try { db.exec(`ALTER TABLE sites ADD COLUMN bot_name TEXT NOT NULL DEFAULT 'Asistan'`); } catch {}
-  try { db.exec(`ALTER TABLE sites ADD COLUMN system_prompt TEXT NOT NULL DEFAULT 'Sen yardımcı bir asistansın.'`); } catch {}
-
-  // Varsayılan admin kullanıcısı yoksa oluştur
-  const count = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
+  // Varsayılan admin yoksa oluştur
+  const res = await c.execute('SELECT COUNT(*) as c FROM users');
+  const count = Number(res.rows[0].c);
   if (count === 0) {
     const id = uuidv4();
     const hash = hashPassword('admin123');
-    db.prepare('INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(id, 'admin', hash);
+    await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'admin', hash] });
   }
 }
 
-// --- Sites ---
-export function getAllSites() {
-  const db = getDb();
-  return db.prepare(`
-    SELECT s.*, COUNT(m.id) as message_count,
-    SUM(CASE WHEN m.status = 'unread' THEN 1 ELSE 0 END) as unread_count
-    FROM sites s
-    LEFT JOIN messages m ON m.site_id = s.id
-    GROUP BY s.id
-    ORDER BY s.created_at DESC
-  `).all();
+// Yardımcı: tek satır dön
+type Args = InValue[];
+
+async function one<T>(sql: string, args: Args = []): Promise<T | undefined> {
+  await ensureInit();
+  const res = await getClient().execute({ sql, args });
+  return res.rows[0] as unknown as T | undefined;
 }
 
-export function getSiteByApiKey(apiKey: string) {
-  return getDb().prepare('SELECT * FROM sites WHERE api_key = ?').get(apiKey) as Site | undefined;
+// Yardımcı: tüm satırları dön
+async function all<T>(sql: string, args: Args = []): Promise<T[]> {
+  await ensureInit();
+  const res = await getClient().execute({ sql, args });
+  return res.rows as unknown as T[];
 }
 
-export function getSiteById(id: string) {
-  return getDb().prepare('SELECT * FROM sites WHERE id = ?').get(id) as Site | undefined;
+// Yardımcı: yaz (insert/update/delete)
+async function run(sql: string, args: Args = []): Promise<void> {
+  await ensureInit();
+  await getClient().execute({ sql, args });
 }
 
+// --- Tipler ---
 export interface Site {
   id: string;
   name: string;
@@ -123,84 +124,6 @@ export interface Site {
   created_at: string;
 }
 
-export function createSite(name: string, domain: string, botName = 'Asistan', systemPrompt = 'Sen yardımcı bir asistansın.') {
-  const id = uuidv4();
-  const apiKey = `mk_${uuidv4().replace(/-/g, '')}`;
-  getDb().prepare('INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt) VALUES (?, ?, ?, ?, ?, ?)').run(id, name, domain, apiKey, botName, systemPrompt);
-  return getDb().prepare('SELECT * FROM sites WHERE id = ?').get(id);
-}
-
-export function updateSite(id: string, data: { bot_name?: string; system_prompt?: string }) {
-  const fields = Object.keys(data).map(k => `${k} = ?`).join(', ');
-  const values = Object.values(data);
-  getDb().prepare(`UPDATE sites SET ${fields} WHERE id = ?`).run(...values, id);
-  return getDb().prepare('SELECT * FROM sites WHERE id = ?').get(id);
-}
-
-export function deleteSite(id: string) {
-  return getDb().prepare('DELETE FROM sites WHERE id = ?').run(id);
-}
-
-// --- Messages ---
-export function getAllMessages(filters: { siteId?: string; status?: string; search?: string } = {}) {
-  let query = `
-    SELECT m.*, s.name as site_name, s.domain as site_domain,
-    (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id) as reply_count
-    FROM messages m
-    JOIN sites s ON s.id = m.site_id
-    WHERE 1=1
-  `;
-  const params: (string)[] = [];
-  if (filters.siteId) { query += ' AND m.site_id = ?'; params.push(filters.siteId); }
-  if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
-  if (filters.search) { query += ' AND (m.sender_name LIKE ? OR m.sender_email LIKE ? OR m.subject LIKE ? OR m.content LIKE ?)'; params.push(...Array(4).fill(`%${filters.search}%`)); }
-  query += ' ORDER BY m.created_at DESC';
-  return getDb().prepare(query).all(...params);
-}
-
-export function getMessageById(id: string) {
-  const msg = getDb().prepare(`
-    SELECT m.*, s.name as site_name, s.domain as site_domain
-    FROM messages m JOIN sites s ON s.id = m.site_id
-    WHERE m.id = ?
-  `).get(id);
-  if (!msg) return null;
-  const replies = getDb().prepare('SELECT * FROM replies WHERE message_id = ? ORDER BY created_at ASC').all(id);
-  return { ...(msg as object), replies };
-}
-
-export function createMessage(siteId: string, data: {
-  sender_name?: string;
-  sender_email?: string;
-  subject?: string;
-  content: string;
-  extra_fields?: Record<string, unknown>;
-}) {
-  const id = uuidv4();
-  getDb().prepare(`
-    INSERT INTO messages (id, site_id, sender_name, sender_email, subject, content, extra_fields)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(id, siteId, data.sender_name || null, data.sender_email || null, data.subject || null, data.content, data.extra_fields ? JSON.stringify(data.extra_fields) : null);
-  return getMessageById(id);
-}
-
-export function updateMessageStatus(id: string, status: string) {
-  return getDb().prepare('UPDATE messages SET status = ? WHERE id = ?').run(status, id);
-}
-
-export function deleteMessage(id: string) {
-  return getDb().prepare('DELETE FROM messages WHERE id = ?').run(id);
-}
-
-// --- Replies ---
-export function createReply(messageId: string, content: string) {
-  const id = uuidv4();
-  getDb().prepare('INSERT INTO replies (id, message_id, content) VALUES (?, ?, ?)').run(id, messageId, content);
-  updateMessageStatus(messageId, 'replied');
-  return getDb().prepare('SELECT * FROM replies WHERE id = ?').get(id);
-}
-
-// --- Conversations ---
 export interface ChatMessage {
   id: string;
   conversation_id: string;
@@ -220,7 +143,107 @@ export interface Conversation {
   updated_at: string;
 }
 
-export function getAllConversations(filters: { siteId?: string; status?: string } = {}) {
+// --- Sites ---
+export async function getAllSites() {
+  return all(`
+    SELECT s.*, COUNT(m.id) as message_count,
+    SUM(CASE WHEN m.status = 'unread' THEN 1 ELSE 0 END) as unread_count
+    FROM sites s
+    LEFT JOIN messages m ON m.site_id = s.id
+    GROUP BY s.id
+    ORDER BY s.created_at DESC
+  `);
+}
+
+export async function getSiteByApiKey(apiKey: string) {
+  return one<Site>('SELECT * FROM sites WHERE api_key = ?', [apiKey]);
+}
+
+export async function getSiteById(id: string) {
+  return one<Site>('SELECT * FROM sites WHERE id = ?', [id]);
+}
+
+export async function createSite(name: string, domain: string, botName = 'Asistan', systemPrompt = 'Sen yardımcı bir asistansın.') {
+  const id = uuidv4();
+  const apiKey = `mk_${uuidv4().replace(/-/g, '')}`;
+  await run('INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt) VALUES (?, ?, ?, ?, ?, ?)', [id, name, domain, apiKey, botName, systemPrompt]);
+  return one<Site>('SELECT * FROM sites WHERE id = ?', [id]);
+}
+
+export async function updateSite(id: string, data: { bot_name?: string; system_prompt?: string }) {
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return getSiteById(id);
+  const fields = entries.map(([k]) => `${k} = ?`).join(', ');
+  const values = entries.map(([, v]) => v);
+  await run(`UPDATE sites SET ${fields} WHERE id = ?`, [...values, id]);
+  return one<Site>('SELECT * FROM sites WHERE id = ?', [id]);
+}
+
+export async function deleteSite(id: string) {
+  await run('DELETE FROM sites WHERE id = ?', [id]);
+}
+
+// --- Messages ---
+export async function getAllMessages(filters: { siteId?: string; status?: string; search?: string } = {}) {
+  let query = `
+    SELECT m.*, s.name as site_name, s.domain as site_domain,
+    (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id) as reply_count
+    FROM messages m JOIN sites s ON s.id = m.site_id WHERE 1=1
+  `;
+  const params: InValue[] = [];
+  if (filters.siteId) { query += ' AND m.site_id = ?'; params.push(filters.siteId); }
+  if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
+  if (filters.search) {
+    query += ' AND (m.sender_name LIKE ? OR m.sender_email LIKE ? OR m.subject LIKE ? OR m.content LIKE ?)';
+    params.push(...Array(4).fill(`%${filters.search}%`));
+  }
+  query += ' ORDER BY m.created_at DESC';
+  return all(query, params);
+}
+
+export async function getMessageById(id: string) {
+  const msg = await one<Record<string, unknown>>(`
+    SELECT m.*, s.name as site_name, s.domain as site_domain
+    FROM messages m JOIN sites s ON s.id = m.site_id WHERE m.id = ?
+  `, [id]);
+  if (!msg) return null;
+  const replies = await all('SELECT * FROM replies WHERE message_id = ? ORDER BY created_at ASC', [id]);
+  return { ...msg, replies };
+}
+
+export async function createMessage(siteId: string, data: {
+  sender_name?: string;
+  sender_email?: string;
+  subject?: string;
+  content: string;
+  extra_fields?: Record<string, unknown>;
+}) {
+  const id = uuidv4();
+  await run(
+    'INSERT INTO messages (id, site_id, sender_name, sender_email, subject, content, extra_fields) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, siteId, data.sender_name ?? null, data.sender_email ?? null, data.subject ?? null, data.content, data.extra_fields ? JSON.stringify(data.extra_fields) : null]
+  );
+  return getMessageById(id);
+}
+
+export async function updateMessageStatus(id: string, status: string) {
+  await run('UPDATE messages SET status = ? WHERE id = ?', [status, id]);
+}
+
+export async function deleteMessage(id: string) {
+  await run('DELETE FROM messages WHERE id = ?', [id]);
+}
+
+// --- Replies ---
+export async function createReply(messageId: string, content: string) {
+  const id = uuidv4();
+  await run('INSERT INTO replies (id, message_id, content) VALUES (?, ?, ?)', [id, messageId, content]);
+  await updateMessageStatus(messageId, 'replied');
+  return one('SELECT * FROM replies WHERE id = ?', [id]);
+}
+
+// --- Conversations ---
+export async function getAllConversations(filters: { siteId?: string; status?: string } = {}) {
   let query = `
     SELECT c.*, s.name as site_name, s.domain as site_domain,
     COUNT(cm.id) as message_count,
@@ -230,100 +253,100 @@ export function getAllConversations(filters: { siteId?: string; status?: string 
     LEFT JOIN chat_messages cm ON cm.conversation_id = c.id
     WHERE 1=1
   `;
-  const params: string[] = [];
+  const params: InValue[] = [];
   if (filters.siteId) { query += ' AND c.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND c.status = ?'; params.push(filters.status); }
   query += ' GROUP BY c.id ORDER BY c.updated_at DESC';
-  return getDb().prepare(query).all(...params);
+  return all(query, params);
 }
 
-export function getConversationById(id: string) {
-  const conv = getDb().prepare(`
+export async function getConversationById(id: string) {
+  const conv = await one<Record<string, unknown>>(`
     SELECT c.*, s.name as site_name, s.domain as site_domain, s.bot_name
-    FROM conversations c JOIN sites s ON s.id = c.site_id
-    WHERE c.id = ?
-  `).get(id);
+    FROM conversations c JOIN sites s ON s.id = c.site_id WHERE c.id = ?
+  `, [id]);
   if (!conv) return null;
-  const messages = getDb().prepare('SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC').all(id);
-  return { ...(conv as object), messages };
+  const messages = await all('SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC', [id]);
+  return { ...conv, messages };
 }
 
-export function getOrCreateConversation(siteId: string, sessionId: string) {
-  let conv = getDb().prepare('SELECT * FROM conversations WHERE session_id = ? AND site_id = ?').get(sessionId, siteId) as Conversation | undefined;
+export async function getOrCreateConversation(siteId: string, sessionId: string): Promise<Conversation> {
+  let conv = await one<Conversation>('SELECT * FROM conversations WHERE session_id = ? AND site_id = ?', [sessionId, siteId]);
   if (!conv) {
     const id = uuidv4();
-    getDb().prepare('INSERT INTO conversations (id, site_id, session_id) VALUES (?, ?, ?)').run(id, siteId, sessionId);
-    conv = getDb().prepare('SELECT * FROM conversations WHERE id = ?').get(id) as Conversation;
+    await run('INSERT INTO conversations (id, site_id, session_id) VALUES (?, ?, ?)', [id, siteId, sessionId]);
+    conv = await one<Conversation>('SELECT * FROM conversations WHERE id = ?', [id]);
   }
-  return conv;
+  return conv!;
 }
 
-export function updateConversationVisitor(id: string, data: { visitor_name?: string; visitor_email?: string }) {
-  if (data.visitor_name) getDb().prepare('UPDATE conversations SET visitor_name = ? WHERE id = ?').run(data.visitor_name, id);
-  if (data.visitor_email) getDb().prepare('UPDATE conversations SET visitor_email = ? WHERE id = ?').run(data.visitor_email, id);
+export async function updateConversationVisitor(id: string, data: { visitor_name?: string; visitor_email?: string }) {
+  if (data.visitor_name) await run('UPDATE conversations SET visitor_name = ? WHERE id = ?', [data.visitor_name, id]);
+  if (data.visitor_email) await run('UPDATE conversations SET visitor_email = ? WHERE id = ?', [data.visitor_email, id]);
 }
 
-export function addChatMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
+export async function addChatMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
   const id = uuidv4();
-  getDb().prepare('INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)').run(id, conversationId, role, content);
-  getDb().prepare("UPDATE conversations SET updated_at = datetime('now'), status = 'active' WHERE id = ?").run(conversationId);
-  return getDb().prepare('SELECT * FROM chat_messages WHERE id = ?').get(id);
+  await run('INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)', [id, conversationId, role, content]);
+  await run("UPDATE conversations SET updated_at = datetime('now'), status = 'active' WHERE id = ?", [conversationId]);
+  return one('SELECT * FROM chat_messages WHERE id = ?', [id]);
 }
 
-export function getConversationMessages(conversationId: string) {
-  return getDb().prepare('SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC').all(conversationId) as ChatMessage[];
+export async function getConversationMessages(conversationId: string): Promise<ChatMessage[]> {
+  return all<ChatMessage>('SELECT * FROM chat_messages WHERE conversation_id = ? ORDER BY created_at ASC', [conversationId]);
 }
 
-export function updateConversationStatus(id: string, status: string) {
-  return getDb().prepare('UPDATE conversations SET status = ? WHERE id = ?').run(status, id);
+export async function updateConversationStatus(id: string, status: string) {
+  await run('UPDATE conversations SET status = ? WHERE id = ?', [status, id]);
 }
 
-export function deleteConversation(id: string) {
-  return getDb().prepare('DELETE FROM conversations WHERE id = ?').run(id);
-}
-
-export function getConversationStats() {
-  const db = getDb();
-  return {
-    total: (db.prepare('SELECT COUNT(*) as c FROM conversations').get() as { c: number }).c,
-    active: (db.prepare("SELECT COUNT(*) as c FROM conversations WHERE status = 'active'").get() as { c: number }).c,
-    closed: (db.prepare("SELECT COUNT(*) as c FROM conversations WHERE status = 'closed'").get() as { c: number }).c,
-  };
+export async function deleteConversation(id: string) {
+  await run('DELETE FROM conversations WHERE id = ?', [id]);
 }
 
 // --- Users ---
-export function getAllUsers() {
-  return getDb().prepare('SELECT id, username, created_at FROM users ORDER BY created_at ASC').all();
+export async function getAllUsers() {
+  return all('SELECT id, username, created_at FROM users ORDER BY created_at ASC');
 }
 
-export function getUserByUsername(username: string) {
-  return getDb().prepare('SELECT * FROM users WHERE username = ?').get(username) as { id: string; username: string; password_hash: string } | undefined;
+export async function getUserByUsername(username: string) {
+  return one<{ id: string; username: string; password_hash: string }>('SELECT * FROM users WHERE username = ?', [username]);
 }
 
-export function createUser(username: string, password: string) {
+export async function createUser(username: string, password: string) {
   const id = uuidv4();
   const hash = hashPassword(password);
-  getDb().prepare('INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)').run(id, username, hash);
-  return getDb().prepare('SELECT id, username, created_at FROM users WHERE id = ?').get(id);
+  await run('INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', [id, username, hash]);
+  return one('SELECT id, username, created_at FROM users WHERE id = ?', [id]);
 }
 
-export function deleteUser(id: string) {
-  return getDb().prepare('DELETE FROM users WHERE id = ?').run(id);
+export async function deleteUser(id: string) {
+  await run('DELETE FROM users WHERE id = ?', [id]);
 }
 
-export function getUserCount() {
-  return (getDb().prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
+export async function getUserCount(): Promise<number> {
+  const res = await one<{ c: number }>('SELECT COUNT(*) as c FROM users');
+  return Number(res?.c ?? 0);
 }
 
 // --- Stats ---
-export function getStats() {
-  const db = getDb();
+export async function getStats() {
+  await ensureInit();
+  const c = getClient();
+  const [total, unread, replied, sites, conversations, activeConversations] = await Promise.all([
+    c.execute('SELECT COUNT(*) as c FROM messages'),
+    c.execute("SELECT COUNT(*) as c FROM messages WHERE status = 'unread'"),
+    c.execute("SELECT COUNT(*) as c FROM messages WHERE status = 'replied'"),
+    c.execute('SELECT COUNT(*) as c FROM sites'),
+    c.execute('SELECT COUNT(*) as c FROM conversations'),
+    c.execute("SELECT COUNT(*) as c FROM conversations WHERE status = 'active'"),
+  ]);
   return {
-    total: (db.prepare('SELECT COUNT(*) as c FROM messages').get() as { c: number }).c,
-    unread: (db.prepare("SELECT COUNT(*) as c FROM messages WHERE status = 'unread'").get() as { c: number }).c,
-    replied: (db.prepare("SELECT COUNT(*) as c FROM messages WHERE status = 'replied'").get() as { c: number }).c,
-    sites: (db.prepare('SELECT COUNT(*) as c FROM sites').get() as { c: number }).c,
-    conversations: (db.prepare('SELECT COUNT(*) as c FROM conversations').get() as { c: number }).c,
-    activeConversations: (db.prepare("SELECT COUNT(*) as c FROM conversations WHERE status = 'active'").get() as { c: number }).c,
+    total: Number(total.rows[0].c),
+    unread: Number(unread.rows[0].c),
+    replied: Number(replied.rows[0].c),
+    sites: Number(sites.rows[0].c),
+    conversations: Number(conversations.rows[0].c),
+    activeConversations: Number(activeConversations.rows[0].c),
   };
 }

@@ -11,7 +11,6 @@ import {
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 export async function POST(req: NextRequest) {
-  // CORS
   const origin = req.headers.get('origin') || '*';
   const corsHeaders = {
     'Access-Control-Allow-Origin': origin,
@@ -22,7 +21,7 @@ export async function POST(req: NextRequest) {
   const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
   if (!apiKey) return NextResponse.json({ error: 'API anahtarı gerekli' }, { status: 401, headers: corsHeaders });
 
-  const site = getSiteByApiKey(apiKey);
+  const site = await getSiteByApiKey(apiKey);
   if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401, headers: corsHeaders });
 
   if (!process.env.OPENAI_API_KEY) {
@@ -34,28 +33,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'message ve sessionId gerekli' }, { status: 400, headers: corsHeaders });
   }
 
-  // Konuşmayı al veya oluştur
-  const conversation = getOrCreateConversation(site.id, sessionId);
+  const conversation = await getOrCreateConversation(site.id, sessionId);
 
-  // Ziyaretçi bilgilerini güncelle
   if (visitorName || visitorEmail) {
-    updateConversationVisitor(conversation.id, { visitor_name: visitorName, visitor_email: visitorEmail });
+    await updateConversationVisitor(conversation.id, { visitor_name: visitorName, visitor_email: visitorEmail });
   }
 
-  // Kullanıcı mesajını kaydet
-  addChatMessage(conversation.id, 'user', message);
+  await addChatMessage(conversation.id, 'user', message);
 
-  // Önceki mesajları getir (OpenAI context için)
-  const history = getConversationMessages(conversation.id);
+  const history = await getConversationMessages(conversation.id);
   const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: site.system_prompt },
-    ...history.slice(-20).map((m) => ({ // son 20 mesaj
+    ...history.slice(-20).map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
     })),
   ];
 
-  // OpenAI'ya gönder
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: openaiMessages,
@@ -63,14 +57,9 @@ export async function POST(req: NextRequest) {
   });
 
   const reply = completion.choices[0]?.message?.content || 'Bir hata oluştu.';
+  await addChatMessage(conversation.id, 'assistant', reply);
 
-  // Asistan yanıtını kaydet
-  addChatMessage(conversation.id, 'assistant', reply);
-
-  return NextResponse.json({
-    reply,
-    conversationId: conversation.id,
-  }, { headers: corsHeaders });
+  return NextResponse.json({ reply, conversationId: conversation.id }, { headers: corsHeaders });
 }
 
 export async function OPTIONS(req: NextRequest) {

@@ -3,13 +3,13 @@ import { getMessageById, updateMessageStatus, deleteMessage } from '@/lib/db';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const message = getMessageById(id);
+  const message = await getMessageById(id);
   if (!message) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   // Auto-mark as read
-  if ((message as unknown as { status: string }).status === 'unread') updateMessageStatus(id, 'read');
+  if ((message as unknown as { status: string }).status === 'unread') await updateMessageStatus(id, 'read');
 
-  return NextResponse.json(getMessageById(id));
+  return NextResponse.json(await getMessageById(id));
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -18,12 +18,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (!['unread', 'read', 'replied', 'archived'].includes(status)) {
     return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
   }
-  updateMessageStatus(id, status);
+  await updateMessageStatus(id, status);
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  deleteMessage(id);
+  await deleteMessage(id);
   return NextResponse.json({ success: true });
 }

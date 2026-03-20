@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'API key required' }, { status: 401 });
     }
 
-    const site = getSiteByApiKey(apiKey) as { id: string } | undefined;
+    const site = await getSiteByApiKey(apiKey);
     if (!site) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
     }
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
     }
 
     const extraFields = Object.keys(extra).length > 0 ? extra : undefined;
-    const message = createMessage(site.id, {
+    const message = await createMessage(site.id, {
       sender_name,
       sender_email,
       subject,
@@ -36,7 +36,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Allow CORS for cross-origin site embeds
 export async function OPTIONS() {
   return new NextResponse(null, {
     status: 204,

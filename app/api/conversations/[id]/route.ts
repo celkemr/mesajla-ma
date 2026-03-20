@@ -3,7 +3,7 @@ import { getConversationById, updateConversationStatus, deleteConversation } fro
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const conv = getConversationById(id);
+  const conv = await getConversationById(id);
   if (!conv) return NextResponse.json({ error: 'Bulunamadı' }, { status: 404 });
   return NextResponse.json(conv);
 }
@@ -11,12 +11,12 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { status } = await req.json();
-  updateConversationStatus(id, status);
+  await updateConversationStatus(id, status);
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  deleteConversation(id);
+  await deleteConversation(id);
   return NextResponse.json({ success: true });
 }

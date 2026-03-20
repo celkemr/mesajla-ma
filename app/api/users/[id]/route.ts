@@ -3,10 +3,10 @@ import { deleteUser, getUserCount } from '@/lib/db';
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  // En az 1 kullanıcı kalsın
-  if (getUserCount() <= 1) {
+  const count = await getUserCount();
+  if (count <= 1) {
     return NextResponse.json({ error: 'Son kullanıcı silinemez' }, { status: 400 });
   }
-  deleteUser(id);
+  await deleteUser(id);
   return NextResponse.json({ success: true });
 }

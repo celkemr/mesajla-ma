@@ -7,8 +7,10 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get('status') || undefined;
   const search = searchParams.get('search') || undefined;
 
-  const messages = getAllMessages({ siteId, status, search });
-  const stats = getStats();
+  const [messages, stats] = await Promise.all([
+    getAllMessages({ siteId, status, search }),
+    getStats(),
+  ]);
 
   return NextResponse.json({ messages, stats });
 }
