@@ -16,9 +16,10 @@ async function verifyToken(token: string): Promise<boolean> {
       ['verify']
     );
 
-    // base64url → base64 → binary
+    // base64url → base64 (padding ekle) → binary
     const b64 = sig.replace(/-/g, '+').replace(/_/g, '/');
-    const binary = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+    const padded = b64 + '='.repeat((4 - b64.length % 4) % 4);
+    const binary = Uint8Array.from(atob(padded), (c) => c.charCodeAt(0));
     const valid = await crypto.subtle.verify('HMAC', key, binary, encoder.encode(payload));
     if (!valid) return false;
 
