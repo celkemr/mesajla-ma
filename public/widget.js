@@ -167,14 +167,14 @@
         '    <div class="mp-name">' + this._esc(this.config.botName) + '</div>',
         (this.config.onlineIndicator ? '    <div class="mp-status"><span class="mp-dot"></span>' + this._t('online') + '</div>' : ''),
         '  </div>',
-        '  <button id="mp-close-btn" aria-label="Kapat">',
+        '  <button id="mp-close-btn" aria-label="' + this._t('close') + '">',
         '    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>',
         '  </button>',
         '</div>',
         '<div id="mp-messages"></div>',
         '<div id="mp-input-area">',
-        '  <textarea id="mp-input" rows="1" placeholder="' + this._esc(this.config.placeholder || this._t('placeholder')) + '" aria-label="Mesaj yaz"></textarea>',
-        '  <button id="mp-send" style="background:' + color + '" aria-label="Gönder">',
+        '  <textarea id="mp-input" rows="1" placeholder="' + this._esc(this.config.placeholder || this._t('placeholder')) + '" aria-label="' + this._t('write_message') + '"></textarea>',
+        '  <button id="mp-send" style="background:' + color + '" aria-label="' + this._t('send') + '">',
         '    <svg viewBox="0 0 24 24"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.51c0 .71.73 1.2 1.39.91z"/></svg>',
         '  </button>',
         '</div>',
@@ -184,7 +184,7 @@
       // Button
       var btn = document.createElement('button');
       btn.id = 'mp-btn';
-      btn.setAttribute('aria-label', 'Sohbeti aç');
+      btn.setAttribute('aria-label', self._t('open_chat'));
       btn.style.cssText = posStyle + ';background:' + color + ';color:' + color;
       btn.innerHTML = [
         '<span id="mp-badge"></span>',
@@ -226,6 +226,13 @@
       var translations = {
         online:       { tr:'Çevrimiçi', en:'Online',    de:'Online',     fr:'En ligne',  es:'En línea',   ar:'متصل',      ru:'Онлайн',    nl:'Online',   it:'Online',   pt:'Online'   },
         placeholder:  { tr:'Mesajınızı yazın...', en:'Type a message...', de:'Nachricht eingeben...', fr:'Écrivez un message...', es:'Escribe un mensaje...', ar:'اكتب رسالة...', ru:'Напишите сообщение...', nl:'Typ een bericht...', it:'Scrivi un messaggio...', pt:'Digite uma mensagem...' },
+        close:        { tr:'Kapat', en:'Close', de:'Schließen', fr:'Fermer', es:'Cerrar', ar:'إغلاق', ru:'Закрыть', nl:'Sluiten', it:'Chiudi', pt:'Fechar' },
+        write_message:{ tr:'Mesaj yaz', en:'Write a message', de:'Nachricht schreiben', fr:'Écrire un message', es:'Escribir mensaje', ar:'اكتب رسالة', ru:'Написать сообщение', nl:'Bericht schrijven', it:'Scrivi messaggio', pt:'Escrever mensagem' },
+        send:         { tr:'Gönder', en:'Send', de:'Senden', fr:'Envoyer', es:'Enviar', ar:'إرسال', ru:'Отправить', nl:'Verzenden', it:'Invia', pt:'Enviar' },
+        open_chat:    { tr:'Sohbeti aç', en:'Open chat', de:'Chat öffnen', fr:'Ouvrir le chat', es:'Abrir chat', ar:'فتح المحادثة', ru:'Открыть чат', nl:'Chat openen', it:'Apri chat', pt:'Abrir chat' },
+        close_chat:   { tr:'Sohbeti kapat', en:'Close chat', de:'Chat schließen', fr:'Fermer le chat', es:'Cerrar chat', ar:'إغلاق المحادثة', ru:'Закрыть чат', nl:'Chat sluiten', it:'Chiudi chat', pt:'Fechar chat' },
+        error:        { tr:'Üzgünüm, bir hata oluştu.', en:'Sorry, an error occurred.', de:'Entschuldigung, ein Fehler ist aufgetreten.', fr:'Désolé, une erreur s\'est produite.', es:'Lo siento, ocurrió un error.', ar:'عذراً، حدث خطأ.', ru:'Извините, произошла ошибка.', nl:'Sorry, er is een fout opgetreden.', it:'Spiacente, si è verificato un errore.', pt:'Desculpe, ocorreu um erro.' },
+        conn_error:   { tr:'Bağlantı hatası. Lütfen tekrar deneyin.', en:'Connection error. Please try again.', de:'Verbindungsfehler. Bitte versuchen Sie es erneut.', fr:'Erreur de connexion. Veuillez réessayer.', es:'Error de conexión. Por favor, inténtelo de nuevo.', ar:'خطأ في الاتصال. يرجى المحاولة مرة أخرى.', ru:'Ошибка соединения. Пожалуйста, попробуйте снова.', nl:'Verbindingsfout. Probeer het opnieuw.', it:'Errore di connessione. Riprova.', pt:'Erro de conexão. Por favor, tente novamente.' },
       };
       var lang = this.config.language || 'tr';
       return (translations[key] && (translations[key][lang] || translations[key]['tr'])) || key;
@@ -333,7 +340,7 @@
       var btn = document.getElementById('mp-btn');
       panel.classList.toggle('mp-open', this.isOpen);
       btn.classList.toggle('mp-active', this.isOpen);
-      btn.setAttribute('aria-label', this.isOpen ? 'Sohbeti kapat' : 'Sohbeti aç');
+      btn.setAttribute('aria-label', this.isOpen ? this._t('close_chat') : this._t('open_chat'));
       if (this.isOpen) {
         var input = document.getElementById('mp-input');
         if (input) setTimeout(function () { input.focus(); }, 150);
@@ -374,13 +381,13 @@
           if (self.config.typingIndicator) self._hideTyping();
           self.isTyping = false;
           document.getElementById('mp-send').disabled = false;
-          self._addMessage('bot', data.reply || 'Üzgünüm, bir hata oluştu.');
+          self._addMessage('bot', data.reply || self._t('error'));
         })
         .catch(function () {
           if (self.config.typingIndicator) self._hideTyping();
           self.isTyping = false;
           document.getElementById('mp-send').disabled = false;
-          self._addMessage('bot', 'Bağlantı hatası. Lütfen tekrar deneyin.');
+          self._addMessage('bot', self._t('conn_error'));
         });
     },
 
