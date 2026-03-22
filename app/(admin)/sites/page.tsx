@@ -155,12 +155,13 @@ export default function SitesPage() {
     if (!editTelegramToken || !editTelegramChat) return;
     setTestingTelegram(true);
     try {
-      const res = await fetch(`https://api.telegram.org/bot${editTelegramToken}/sendMessage`, {
+      const res = await fetch('/api/telegram-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: editTelegramChat, text: '✅ Mesajla.ma Telegram bağlantısı başarılı!' }),
+        body: JSON.stringify({ botToken: editTelegramToken, chatId: editTelegramChat }),
       });
-      alert(res.ok ? '✅ Test mesajı gönderildi!' : '❌ Gönderilemedi. Token ve Chat ID\'yi kontrol edin.');
+      const data = await res.json();
+      alert(data.ok ? '✅ Test mesajı gönderildi!' : `❌ Hata: ${data.error || 'Token ve Chat ID\'yi kontrol edin.'}`);
     } catch { alert('❌ Bağlantı hatası.'); }
     setTestingTelegram(false);
   }
