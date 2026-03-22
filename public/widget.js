@@ -19,7 +19,7 @@
         botName: 'Asistan',
         welcomeMessage: 'Merhaba! Size nasıl yardımcı olabilirim?',
         buttonColor: '#2563eb',
-        placeholder: 'Mesajınızı yazın...',
+        placeholder: '',
         typingIndicator: true,
         onlineIndicator: true,
       }, config);
