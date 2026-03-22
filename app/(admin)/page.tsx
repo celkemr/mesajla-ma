@@ -106,17 +106,17 @@ export default function DashboardPage() {
   return (
     <div>
       {/* Page header */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-5 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 md:px-8 py-4 sm:py-5 flex items-center justify-between">
         <div>
           <h1 className="text-[17px] font-semibold text-slate-900">Gösterge Paneli</h1>
           <p className="text-sm text-slate-400 mt-0.5">Tüm sitelerinizin özeti</p>
         </div>
-        <span className="text-xs text-slate-400 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg capitalize">{today}</span>
+        <span className="text-xs text-slate-400 bg-slate-50 border border-slate-200 px-2 sm:px-3 py-1.5 rounded-lg capitalize hidden sm:inline">{today}</span>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Stat cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           {STAT_CARDS.map((card) => (
             <div key={card.label} className="relative overflow-hidden bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
               <div className="flex items-start justify-between mb-4">
@@ -133,7 +133,7 @@ export default function DashboardPage() {
 
         {/* Visitor stats */}
         {visitorStats && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <p className="text-sm font-medium text-slate-600">Bugünkü Ziyaretçiler</p>
@@ -214,7 +214,7 @@ export default function DashboardPage() {
           ) : (
             <div className="divide-y divide-slate-50">
               {recent.map((msg) => (
-                <Link key={msg.id} href={`/messages/${msg.id}`} className="flex items-center gap-4 px-6 py-4 hover:bg-slate-50/70 transition-colors group">
+                <Link key={msg.id} href={`/messages/${msg.id}`} className="flex items-center gap-3 sm:gap-4 px-4 sm:px-6 py-3 sm:py-4 hover:bg-slate-50/70 active:bg-slate-100 transition-colors group">
                   <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white shrink-0" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
                     {(msg.sender_name || '?')[0].toUpperCase()}
                   </div>

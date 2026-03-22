@@ -88,14 +88,14 @@ export default function CustomersPage() {
     <div>
       {dialog}
       {/* Header */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-5">
+      <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 md:px-8 py-4 sm:py-5">
         <h1 className="text-[17px] font-semibold text-slate-900">Müşteriler</h1>
         <p className="text-sm text-slate-400 mt-0.5">Widget üzerinden oluşan lead&apos;ler</p>
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-4">
       {/* Status summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {Object.entries(STATUS).map(([k, v]) => (
           <button
             key={k}
@@ -149,15 +149,16 @@ export default function CustomersPage() {
             <p className="text-slate-400 text-xs mt-1">Widget&apos;ınızdaki ön sohbet formunu dolduran ziyaretçiler burada görünür.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[600px]">
             <thead>
               <tr style={{ background: 'linear-gradient(90deg,#f8f9ff,#f3f4f8)' }}>
-                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Müşteri</th>
-                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Site</th>
-                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Durum</th>
-                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Notlar</th>
-                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tarih</th>
-                <th className="px-6 py-3"></th>
+                <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Müşteri</th>
+                <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Site</th>
+                <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Durum</th>
+                <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Notlar</th>
+                <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden lg:table-cell">Tarih</th>
+                <th className="px-4 sm:px-6 py-3"></th>
               </tr>
             </thead>
             <tbody>
@@ -165,8 +166,8 @@ export default function CustomersPage() {
                 const st = STATUS[lead.status] || STATUS.new;
                 const initials = (lead.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
                 return (
-                  <tr key={lead.id} className="border-b border-slate-50 last:border-0 hover:bg-indigo-50/30 transition-colors">
-                    <td className="px-6 py-4">
+                  <tr key={lead.id} className="border-b border-slate-50 last:border-0 hover:bg-indigo-50/30 active:bg-indigo-50/50 transition-colors">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                           {initials}
@@ -178,7 +179,7 @@ export default function CustomersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 text-slate-500">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-500 hidden sm:table-cell">
                       <div>{lead.site_name}</div>
                       {lead.conversation_id && (
                         <Link href={`/conversations/${lead.conversation_id}`} className="text-xs text-blue-500 hover:underline">
@@ -186,7 +187,7 @@ export default function CustomersPage() {
                         </Link>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <select
                         value={lead.status}
                         onChange={e => changeStatus(lead.id, e.target.value)}
@@ -197,7 +198,7 @@ export default function CustomersPage() {
                         ))}
                       </select>
                     </td>
-                    <td className="px-6 py-4 max-w-xs">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 max-w-xs hidden md:table-cell">
                       {editingNotes === lead.id ? (
                         <div className="flex gap-1">
                           <textarea
@@ -225,13 +226,13 @@ export default function CustomersPage() {
                         </button>
                       )}
                     </td>
-                    <td className="px-6 py-4 text-slate-400 text-xs whitespace-nowrap">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-400 text-xs whitespace-nowrap hidden lg:table-cell">
                       {new Date(lead.created_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                       <button
                         onClick={() => deleteLead(lead.id)}
-                        className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                        className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 active:bg-red-100 transition-colors"
                       >
                         Sil
                       </button>
@@ -241,6 +242,7 @@ export default function CustomersPage() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       </div>

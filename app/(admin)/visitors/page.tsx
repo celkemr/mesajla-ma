@@ -167,31 +167,31 @@ export default function VisitorsPage() {
   });
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Başlık */}
-      <div className="flex items-center justify-between mb-5">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Anlık Ziyaretçiler</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Anlık Ziyaretçiler</h1>
           <p className="text-slate-500 text-sm mt-0.5">Son 3 dakikada aktif · 5sn güncelleme</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={toggleNotifications}
             className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${notifyEnabled ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'}`}
             title="Yeni ziyaretçi bildirimi"
           >
-            🔔 {notifyEnabled ? 'Bildirim Açık' : 'Bildirim'}
+            🔔 {notifyEnabled ? 'Açık' : 'Bildirim'}
           </button>
           <span className="bg-green-100 text-green-700 text-sm font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5">
             <span className="w-2 h-2 bg-green-500 rounded-full inline-block animate-pulse" />
             {filtered.length} aktif
           </span>
-          <span className="text-slate-400 text-xs">{lastUpdate.toLocaleTimeString('tr-TR')}</span>
+          <span className="text-slate-400 text-xs hidden sm:inline">{lastUpdate.toLocaleTimeString('tr-TR')}</span>
         </div>
       </div>
 
       {/* Filtreler */}
-      <div className="flex gap-3 mb-5">
+      <div className="flex flex-wrap gap-3 mb-5">
         <select
           value={filterSite}
           onChange={e => setFilterSite(e.target.value)}
@@ -220,18 +220,19 @@ export default function VisitorsPage() {
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-100 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50 text-slate-500 font-medium text-xs uppercase tracking-wide">
-                <th className="text-left px-4 py-3">Cihaz</th>
-                <th className="text-left px-4 py-3">Ülke</th>
-                <th className="text-left px-4 py-3">IP</th>
-                <th className="text-left px-4 py-3">Sayfa</th>
-                <th className="text-left px-4 py-3">Kaynak</th>
-                <th className="text-left px-4 py-3">Ziyaretçi</th>
-                <th className="text-left px-4 py-3">Süre</th>
-                <th className="text-left px-4 py-3">Görüldü</th>
-                <th className="text-left px-4 py-3">Eylem</th>
+                <th className="text-left px-3 sm:px-4 py-3">Cihaz</th>
+                <th className="text-left px-3 sm:px-4 py-3">Ülke</th>
+                <th className="text-left px-3 sm:px-4 py-3 hidden md:table-cell">IP</th>
+                <th className="text-left px-3 sm:px-4 py-3">Sayfa</th>
+                <th className="text-left px-3 sm:px-4 py-3 hidden lg:table-cell">Kaynak</th>
+                <th className="text-left px-3 sm:px-4 py-3">Ziyaretçi</th>
+                <th className="text-left px-3 sm:px-4 py-3 hidden sm:table-cell">Süre</th>
+                <th className="text-left px-3 sm:px-4 py-3">Görüldü</th>
+                <th className="text-left px-3 sm:px-4 py-3">Eylem</th>
               </tr>
             </thead>
             <tbody>
@@ -248,27 +249,27 @@ export default function VisitorsPage() {
                       className="border-b border-slate-50 hover:bg-blue-50/40 transition-colors cursor-pointer"
                     >
                       {/* Cihaz + Tarayıcı */}
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                         <span title={`${v.device_type || 'desktop'} · ${v.browser || ''}`}>
-                          {deviceIcon(v.device_type)} <span className="text-slate-400 text-xs">{v.browser || ''}</span>
+                          {deviceIcon(v.device_type)} <span className="text-slate-400 text-xs hidden sm:inline">{v.browser || ''}</span>
                         </span>
                       </td>
                       {/* Ülke */}
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-3 whitespace-nowrap">
                         <span className="text-lg mr-1">{countryFlag(v.country_code)}</span>
-                        <span className="text-slate-700 text-xs">{v.country_code ? (COUNTRY_NAMES[v.country_code] || v.country_code) : '—'}</span>
+                        <span className="text-slate-700 text-xs hidden sm:inline">{v.country_code ? (COUNTRY_NAMES[v.country_code] || v.country_code) : '—'}</span>
                       </td>
                       {/* IP */}
-                      <td className="px-4 py-3 font-mono text-xs text-slate-400">{maskIp(v.ip_address)}</td>
+                      <td className="px-3 sm:px-4 py-3 font-mono text-xs text-slate-400 hidden md:table-cell">{maskIp(v.ip_address)}</td>
                       {/* Sayfa */}
-                      <td className="px-4 py-3 max-w-[180px]">
+                      <td className="px-3 sm:px-4 py-3 max-w-[120px] sm:max-w-[180px]">
                         <span className="truncate block text-slate-700 text-xs" title={v.current_page || ''}>{shortUrl(v.current_page)}</span>
                         {history.length > 0 && (
-                          <span className="text-blue-400 text-xs">{history.length} sayfa gezdi</span>
+                          <span className="text-blue-400 text-xs">{history.length} sayfa</span>
                         )}
                       </td>
                       {/* Kaynak */}
-                      <td className="px-4 py-3 max-w-[130px]">
+                      <td className="px-3 sm:px-4 py-3 max-w-[130px] hidden lg:table-cell">
                         {v.referrer ? (
                           <span className="text-slate-500 text-xs truncate block" title={v.referrer}>
                             🔗 {shortUrl(v.referrer, true)}
@@ -278,7 +279,7 @@ export default function VisitorsPage() {
                         )}
                       </td>
                       {/* Ziyaretçi */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           {v.visitor_name ? (
                             <span className="text-slate-700 font-medium text-xs">{v.visitor_name}</span>
@@ -299,20 +300,20 @@ export default function VisitorsPage() {
                         <span className="text-slate-400 text-xs">{v.site_name}</span>
                       </td>
                       {/* Süre */}
-                      <td className="px-4 py-3 text-slate-500 text-xs whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-3 text-slate-500 text-xs whitespace-nowrap hidden sm:table-cell">
                         ⏱ {sessionDuration(v.first_seen || v.last_seen)}
                       </td>
                       {/* Son görülme */}
-                      <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
+                      <td className="px-3 sm:px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
                         {timeAgo(v.last_seen)}
                       </td>
                       {/* Eylem */}
-                      <td className="px-4 py-3">
+                      <td className="px-3 sm:px-4 py-3">
                         <button
                           onClick={e => { e.stopPropagation(); setProactiveModal(v); setProactiveMsg(''); }}
-                          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
+                          className="text-xs bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-2 sm:px-2.5 py-1.5 rounded-lg transition-colors whitespace-nowrap"
                         >
-                          ✉️ Mesaj Gönder
+                          ✉️ <span className="hidden sm:inline">Mesaj </span>Gönder
                         </button>
                       </td>
                     </tr>
@@ -320,7 +321,7 @@ export default function VisitorsPage() {
                     {/* Sayfa geçmişi - genişletilmiş */}
                     {isExpanded && history.length > 0 && (
                       <tr key={v.id + '-history'} className="bg-blue-50/30 border-b border-slate-100">
-                        <td colSpan={9} className="px-6 py-3">
+                        <td colSpan={9} className="px-4 sm:px-6 py-3">
                           <p className="text-xs font-semibold text-slate-500 mb-2">📍 Sayfa Geçmişi</p>
                           <div className="flex flex-wrap gap-2">
                             {history.map((h, i) => (
@@ -339,6 +340,7 @@ export default function VisitorsPage() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 

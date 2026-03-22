@@ -70,12 +70,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter();
   const [newCount, setNewCount] = useState(0);
   const [me, setMe] = useState<MeUser | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleNewCount = useCallback((n: number) => setNewCount(n), []);
 
   useEffect(() => {
     fetch('/api/auth/me').then(r => r.json()).then(d => setMe(d.user)).catch(() => {});
-  }, [pathname]); // pathname değişince yenile (switch/restore sonrası)
+  }, [pathname]);
+
+  // Sayfa değişince mobilede sidebar'ı kapat
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [pathname]);
 
   async function handleRestore() {
     await fetch('/api/auth/restore', { method: 'POST' });
@@ -89,100 +95,153 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     router.push('/login');
   }
 
+  const sidebarContent = (
+    <>
+      {/* Logo */}
+      <div className="px-5 py-5 mb-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-4 h-4">
+              <path fillRule="evenodd" d="M4.804 21.644A6.707 6.707 0 0 0 6 21.75a6.721 6.721 0 0 0 3.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 0 1-.814 1.686.75.75 0 0 0 .44 1.223Z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-white text-sm font-semibold leading-tight">Mesajla</p>
+            <p className="text-[#6b7280] text-[10px] leading-tight">Admin Paneli</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex-1 px-3 space-y-0.5">
+        <p className="text-[10px] font-semibold tracking-widest text-[#4b5563] uppercase px-3 mb-2">Menü</p>
+        {navItems.map((item) => {
+          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+          const showBadge = item.badge && newCount > 0;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={() => { if (item.badge) setNewCount(0); }}
+              className={`flex items-center gap-3 px-3 py-3 rounded-xl text-[13px] font-medium transition-all duration-150 group relative ${
+                active
+                  ? 'text-white'
+                  : 'text-[#9ca3af] hover:text-white hover:bg-white/5 active:bg-white/10'
+              }`}
+              style={active ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.15))', boxShadow: 'inset 0 0 0 1px rgba(99,102,241,0.3)' } : {}}
+            >
+              {active && (
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full" style={{ background: 'linear-gradient(180deg, #6366f1, #8b5cf6)' }} />
+              )}
+              <span className={active ? 'text-indigo-400' : 'text-[#6b7280] group-hover:text-[#9ca3af]'}>
+                {item.icon}
+              </span>
+              <span className="flex-1">{item.label}</span>
+              {showBadge && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center text-white" style={{ background: 'linear-gradient(135deg, #ef4444, #f97316)' }}>
+                  {newCount}
+                </span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Bottom */}
+      <div className="px-3 py-4 border-t border-white/5 space-y-3">
+        <div className="px-3">
+          <p className="text-[10px] text-[#4b5563] font-medium mb-1">API Endpoint</p>
+          <code className="text-[#6366f1] text-[10px] break-all">/api/receive</code>
+        </div>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-2.5 px-3 py-3 rounded-xl text-[13px] text-[#6b7280] hover:text-white hover:bg-white/5 active:bg-white/10 transition-all duration-150"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+            <path fillRule="evenodd" d="M7.5 3.75A1.5 1.5 0 0 0 6 5.25v13.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5V15a.75.75 0 0 1 1.5 0v3.75a3 3 0 0 1-3 3h-6a3 3 0 0 1-3-3V5.25a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3V9A.75.75 0 0 1 15 9V5.25a1.5 1.5 0 0 0-1.5-1.5h-6Zm10.72 4.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 1 1-1.06-1.06l1.72-1.72H9a.75.75 0 0 1 0-1.5h10.94l-1.72-1.72a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+          Çıkış Yap
+        </button>
+      </div>
+    </>
+  );
+
   return (
     <div className="flex min-h-screen bg-[#f0f2f7]">
       <GlobalNotifier onNewCount={handleNewCount} />
 
-      {/* Sidebar */}
-      <aside className="w-60 flex flex-col" style={{ background: 'linear-gradient(180deg, #1a1f36 0%, #111827 100%)' }}>
-        {/* Logo */}
-        <div className="px-5 py-5 mb-2">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
+      {/* Masaüstü Sidebar */}
+      <aside className="hidden lg:flex w-60 flex-col shrink-0" style={{ background: 'linear-gradient(180deg, #1a1f36 0%, #111827 100%)' }}>
+        {sidebarContent}
+      </aside>
+
+      {/* Mobil Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobil Sidebar Drawer */}
+      <aside
+        className={`fixed top-0 left-0 z-50 h-full w-64 flex flex-col lg:hidden transition-transform duration-300 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        style={{ background: 'linear-gradient(180deg, #1a1f36 0%, #111827 100%)' }}
+      >
+        {/* Kapat butonu */}
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="absolute top-4 right-4 text-[#6b7280] hover:text-white p-1"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+            <path fillRule="evenodd" d="M5.47 5.47a.75.75 0 0 1 1.06 0L12 10.94l5.47-5.47a.75.75 0 1 1 1.06 1.06L13.06 12l5.47 5.47a.75.75 0 1 1-1.06 1.06L12 13.06l-5.47 5.47a.75.75 0 0 1-1.06-1.06L10.94 12 5.47 6.53a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+          </svg>
+        </button>
+        {sidebarContent}
+      </aside>
+
+      {/* Main content */}
+      <main className="flex-1 overflow-auto flex flex-col min-w-0">
+        {/* Bağlantı banner'ı */}
+        {me?.isConnected && (
+          <div className="flex items-center justify-between px-4 sm:px-6 py-2.5 text-sm font-medium text-white shrink-0" style={{ background: 'linear-gradient(90deg,#f59e0b,#ef4444)' }}>
+            <div className="flex items-center gap-2 min-w-0">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 shrink-0">
+                <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 1 1-1.48-.248A5.25 5.25 0 0 0 12 13.5a5.25 5.25 0 0 0-5.23 5.75.75.75 0 1 1-1.48.248A6.745 6.745 0 0 1 6.31 15.117Z" clipRule="evenodd" />
+              </svg>
+              <span className="truncate"><strong>{me.username}</strong> hesabına bağlandınız</span>
+            </div>
+            <button
+              onClick={handleRestore}
+              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-xs font-semibold transition-colors shrink-0 ml-2"
+            >
+              ← Geri Dön
+            </button>
+          </div>
+        )}
+
+        {/* Mobil üst bar */}
+        <div className="lg:hidden flex items-center justify-between px-4 py-3 bg-white border-b border-slate-200 shrink-0">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg text-slate-600 hover:bg-slate-100 active:bg-slate-200 transition-colors"
+            aria-label="Menüyü aç"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+              <path fillRule="evenodd" d="M3 6.75A.75.75 0 0 1 3.75 6h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 6.75ZM3 12a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75A.75.75 0 0 1 3 12Zm0 5.25a.75.75 0 0 1 .75-.75h16.5a.75.75 0 0 1 0 1.5H3.75a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="white" className="w-4 h-4">
                 <path fillRule="evenodd" d="M4.804 21.644A6.707 6.707 0 0 0 6 21.75a6.721 6.721 0 0 0 3.583-1.029c.774.182 1.584.279 2.417.279 5.322 0 9.75-3.97 9.75-9 0-5.03-4.428-9-9.75-9s-9.75 3.97-9.75 9c0 2.409 1.025 4.587 2.674 6.192.232.226.277.428.254.543a3.73 3.73 0 0 1-.814 1.686.75.75 0 0 0 .44 1.223Z" clipRule="evenodd" />
               </svg>
             </div>
-            <div>
-              <p className="text-white text-sm font-semibold leading-tight">Mesajla</p>
-              <p className="text-[#6b7280] text-[10px] leading-tight">Admin Paneli</p>
-            </div>
+            <span className="text-slate-800 font-semibold text-sm">Mesajla</span>
           </div>
+          <div className="w-9" />
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 px-3 space-y-0.5">
-          <p className="text-[10px] font-semibold tracking-widest text-[#4b5563] uppercase px-3 mb-2">Menü</p>
-          {navItems.map((item) => {
-            const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-            const showBadge = item.badge && newCount > 0;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => { if (item.badge) setNewCount(0); }}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-150 group relative ${
-                  active
-                    ? 'text-white'
-                    : 'text-[#9ca3af] hover:text-white hover:bg-white/5'
-                }`}
-                style={active ? { background: 'linear-gradient(135deg, rgba(99,102,241,0.25), rgba(139,92,246,0.15))', boxShadow: 'inset 0 0 0 1px rgba(99,102,241,0.3)' } : {}}
-              >
-                {/* Active left bar */}
-                {active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 rounded-r-full" style={{ background: 'linear-gradient(180deg, #6366f1, #8b5cf6)' }} />
-                )}
-                <span className={active ? 'text-indigo-400' : 'text-[#6b7280] group-hover:text-[#9ca3af]'}>
-                  {item.icon}
-                </span>
-                <span className="flex-1">{item.label}</span>
-                {showBadge && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center text-white" style={{ background: 'linear-gradient(135deg, #ef4444, #f97316)' }}>
-                    {newCount}
-                  </span>
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* Bottom */}
-        <div className="px-3 py-4 border-t border-white/5 space-y-3">
-          <div className="px-3">
-            <p className="text-[10px] text-[#4b5563] font-medium mb-1">API Endpoint</p>
-            <code className="text-[#6366f1] text-[10px] break-all">/api/receive</code>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-[13px] text-[#6b7280] hover:text-white hover:bg-white/5 transition-all duration-150"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-              <path fillRule="evenodd" d="M7.5 3.75A1.5 1.5 0 0 0 6 5.25v13.5a1.5 1.5 0 0 0 1.5 1.5h6a1.5 1.5 0 0 0 1.5-1.5V15a.75.75 0 0 1 1.5 0v3.75a3 3 0 0 1-3 3h-6a3 3 0 0 1-3-3V5.25a3 3 0 0 1 3-3h6a3 3 0 0 1 3 3V9A.75.75 0 0 1 15 9V5.25a1.5 1.5 0 0 0-1.5-1.5h-6Zm10.72 4.72a.75.75 0 0 1 1.06 0l3 3a.75.75 0 0 1 0 1.06l-3 3a.75.75 0 1 1-1.06-1.06l1.72-1.72H9a.75.75 0 0 1 0-1.5h10.94l-1.72-1.72a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-            </svg>
-            Çıkış Yap
-          </button>
-        </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 overflow-auto flex flex-col">
-        {/* Bağlantı banner'ı - celkemr başka kullanıcıya bağlıyken göster */}
-        {me?.isConnected && (
-          <div className="flex items-center justify-between px-6 py-2.5 text-sm font-medium text-white shrink-0" style={{ background: 'linear-gradient(90deg,#f59e0b,#ef4444)' }}>
-            <div className="flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 1 1-1.48-.248A5.25 5.25 0 0 0 12 13.5a5.25 5.25 0 0 0-5.23 5.75.75.75 0 1 1-1.48.248A6.745 6.745 0 0 1 6.31 15.117Z" clipRule="evenodd" />
-              </svg>
-              <span><strong>{me.username}</strong> hesabına bağlandınız</span>
-            </div>
-            <button
-              onClick={handleRestore}
-              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
-            >
-              ← celkemr&apos;e Geri Dön
-            </button>
-          </div>
-        )}
         <div className="flex-1 overflow-auto">
           {children}
         </div>

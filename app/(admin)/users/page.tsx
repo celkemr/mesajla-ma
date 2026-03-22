@@ -83,7 +83,7 @@ export default function UsersPage() {
     <div>
       {dialog}
       {/* Header */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-5 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 md:px-8 py-4 sm:py-5 flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-[17px] font-semibold text-slate-900">Kullanıcılar</h1>
           <p className="text-sm text-slate-400 mt-0.5">Panel erişimi olan kullanıcıları yönetin</p>
@@ -98,7 +98,7 @@ export default function UsersPage() {
         )}
       </div>
 
-      <div className="p-6 space-y-4">
+      <div className="p-4 sm:p-6 space-y-4">
         {/* Add User */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
           <p className="text-sm font-semibold text-slate-700 mb-4">Yeni Kullanıcı Ekle</p>
@@ -135,20 +135,21 @@ export default function UsersPage() {
           {users.length === 0 ? (
             <div className="p-12 text-center text-slate-400 text-sm">Kullanıcı bulunamadı.</div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[400px]">
               <thead>
                 <tr style={{ background: 'linear-gradient(90deg,#f8f9ff,#f3f4f8)' }}>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Kullanıcı</th>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Oluşturulma</th>
-                  <th className="px-6 py-3.5" />
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Kullanıcı</th>
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden sm:table-cell">Oluşturulma</th>
+                  <th className="px-4 sm:px-6 py-3.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {users.map((user) => {
                   const isSuper = user.username === 'celkemr';
                   return (
-                    <tr key={user.id} className="hover:bg-indigo-50/30 transition-colors">
-                      <td className="px-6 py-4">
+                    <tr key={user.id} className="hover:bg-indigo-50/30 active:bg-indigo-50/50 transition-colors">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4">
                         <div className="flex items-center gap-3">
                           <div
                             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
@@ -166,10 +167,10 @@ export default function UsersPage() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-400">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm text-slate-400 hidden sm:table-cell">
                         {new Date(user.created_at).toLocaleString('tr-TR')}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                         <div className="flex gap-2 justify-end">
                           {/* Bağlan butonu - sadece süper admin görebilir, kendine bağlanamasın */}
                           {isSuperAdmin && !isSuper && (
@@ -198,6 +199,7 @@ export default function UsersPage() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

@@ -67,14 +67,14 @@ function MessagesContent() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Mesajlar</h2>
+    <div className="p-4 sm:p-6 md:p-8">
+      <div className="mb-4 sm:mb-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Mesajlar</h2>
         <p className="text-slate-500 mt-1">{messages.length} mesaj listeleniyor</p>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-3">
+      <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-slate-100 mb-4 sm:mb-6 flex flex-wrap gap-3">
         <input
           type="text"
           placeholder="Mesajlarda ara..."
@@ -127,7 +127,7 @@ function MessagesContent() {
                 <Link
                   key={msg.id}
                   href={`/messages/${msg.id}`}
-                  className={`flex items-start gap-4 p-4 hover:bg-slate-50 transition-colors ${msg.status === 'unread' ? 'bg-blue-50/40' : ''}`}
+                  className={`flex items-start gap-3 sm:gap-4 p-3 sm:p-4 hover:bg-slate-50 active:bg-slate-100 transition-colors ${msg.status === 'unread' ? 'bg-blue-50/40' : ''}`}
                 >
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-sm font-bold text-white shrink-0">
                     {(msg.sender_name || '?')[0].toUpperCase()}

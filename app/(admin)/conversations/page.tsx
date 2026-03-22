@@ -48,7 +48,7 @@ export default function ConversationsPage() {
     <div>
       {dialog}
       {/* Header */}
-      <div className="bg-white border-b border-slate-200/80 px-8 py-5 flex items-center justify-between">
+      <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 md:px-8 py-4 sm:py-5 flex items-center justify-between gap-3">
         <div>
           <h1 className="text-[17px] font-semibold text-slate-900">Konuşmalar</h1>
           <p className="text-sm text-slate-400 mt-0.5">AI chatbot konuşmaları</p>
@@ -64,7 +64,7 @@ export default function ConversationsPage() {
         </select>
       </div>
 
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
           {convs.length === 0 ? (
             <div className="p-16 text-center">
@@ -77,21 +77,22 @@ export default function ConversationsPage() {
               <p className="text-slate-400 text-xs mt-1">Widget&apos;ı sitenize ekledikten sonra konuşmalar burada görünür.</p>
             </div>
           ) : (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr style={{ background: 'linear-gradient(90deg,#f8f9ff,#f3f4f8)' }}>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ziyaretçi</th>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Site</th>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Mesajlar</th>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Durum</th>
-                  <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tarih</th>
-                  <th className="px-6 py-3.5" />
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Ziyaretçi</th>
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Site</th>
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Mesajlar</th>
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Durum</th>
+                  <th className="text-left px-4 sm:px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide hidden md:table-cell">Tarih</th>
+                  <th className="px-4 sm:px-6 py-3.5" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {convs.map((c) => (
-                  <tr key={c.id} className="hover:bg-indigo-50/30 transition-colors">
-                    <td className="px-6 py-4">
+                  <tr key={c.id} className="hover:bg-indigo-50/30 active:bg-indigo-50/50 transition-colors">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <Link href={`/conversations/${c.id}`} className="group">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
@@ -105,16 +106,16 @@ export default function ConversationsPage() {
                         </div>
                       </Link>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <span className="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-lg font-medium">{c.site_name}</span>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <div className="text-slate-700 font-medium">{c.message_count} mesaj</div>
                       {c.summary && (
-                        <div className="text-xs text-slate-400 mt-0.5 max-w-[200px] truncate" title={c.summary}>{c.summary}</div>
+                        <div className="text-xs text-slate-400 mt-0.5 max-w-[150px] sm:max-w-[200px] truncate" title={c.summary}>{c.summary}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4">
                       <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
                         c.status === 'active'
                           ? 'text-emerald-700 bg-emerald-50 border border-emerald-200'
@@ -123,10 +124,10 @@ export default function ConversationsPage() {
                         {c.status === 'active' ? '● Aktif' : '○ Kapalı'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-xs text-slate-400">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-slate-400 hidden md:table-cell">
                       {new Date(c.created_at).toLocaleString('tr-TR')}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                       <div className="flex gap-1.5 justify-end">
                         <Link
                           href={`/conversations/${c.id}`}
@@ -154,6 +155,7 @@ export default function ConversationsPage() {
                 ))}
               </tbody>
             </table>
+          </div>
           )}
         </div>
       </div>
