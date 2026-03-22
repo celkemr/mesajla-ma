@@ -165,7 +165,7 @@
         '  </div>',
         '  <div class="mp-info">',
         '    <div class="mp-name">' + this._esc(this.config.botName) + '</div>',
-        (this.config.onlineIndicator ? '    <div class="mp-status"><span class="mp-dot"></span>Çevrimiçi</div>' : ''),
+        (this.config.onlineIndicator ? '    <div class="mp-status"><span class="mp-dot"></span>' + this._t('online') + '</div>' : ''),
         '  </div>',
         '  <button id="mp-close-btn" aria-label="Kapat">',
         '    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>',
@@ -173,7 +173,7 @@
         '</div>',
         '<div id="mp-messages"></div>',
         '<div id="mp-input-area">',
-        '  <textarea id="mp-input" rows="1" placeholder="' + this._esc(this.config.placeholder) + '" aria-label="Mesaj yaz"></textarea>',
+        '  <textarea id="mp-input" rows="1" placeholder="' + this._esc(this.config.placeholder || this._t('placeholder')) + '" aria-label="Mesaj yaz"></textarea>',
         '  <button id="mp-send" style="background:' + color + '" aria-label="Gönder">',
         '    <svg viewBox="0 0 24 24"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.51c0 .71.73 1.2 1.39.91z"/></svg>',
         '  </button>',
@@ -220,6 +220,15 @@
 
       this._loadHistory();
       this._startBubble();
+    },
+
+    _t: function (key) {
+      var translations = {
+        online:       { tr:'Çevrimiçi', en:'Online',    de:'Online',     fr:'En ligne',  es:'En línea',   ar:'متصل',      ru:'Онлайн',    nl:'Online',   it:'Online',   pt:'Online'   },
+        placeholder:  { tr:'Mesajınızı yazın...', en:'Type a message...', de:'Nachricht eingeben...', fr:'Écrivez un message...', es:'Escribe un mensaje...', ar:'اكتب رسالة...', ru:'Напишите сообщение...', nl:'Typ een bericht...', it:'Scrivi un messaggio...', pt:'Digite uma mensagem...' },
+      };
+      var lang = this.config.language || 'tr';
+      return (translations[key] && (translations[key][lang] || translations[key]['tr'])) || key;
     },
 
     _startBubble: function () {
