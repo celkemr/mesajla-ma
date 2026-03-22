@@ -26,17 +26,8 @@
 
       this.sessionId = this._getSessionId();
       this._detectPanelUrl();
-      // Önceki oturumdan cache'lenmiş config varsa hemen uygula
-      var cached = this._loadCachedConfig();
-      if (cached) {
-        if (cached.buttonColor) this.config.buttonColor = cached.buttonColor;
-        if (cached.botName) this.config.botName = cached.botName;
-        if (cached.welcomeMessage) this.config.welcomeMessage = cached.welcomeMessage;
-        if (typeof cached.typingIndicator !== 'undefined') this.config.typingIndicator = cached.typingIndicator;
-        if (typeof cached.onlineIndicator !== 'undefined') this.config.onlineIndicator = cached.onlineIndicator;
-      }
       this._injectStyles();
-      this._createWidget();
+      this._fetchConfigThenCreate();
     },
 
     _detectPanelUrl: function () {
@@ -50,19 +41,23 @@
       this.config.panelUrl = window.location.origin;
     },
 
-    _loadCachedConfig: function () {
-      try {
-        var key = 'mp_cfg_' + btoa(this.config.apiKey).replace(/=/g, '').slice(0, 16);
-        var raw = localStorage.getItem(key);
-        return raw ? JSON.parse(raw) : null;
-      } catch (e) { return null; }
-    },
-
-    _saveCachedConfig: function (cfg) {
-      try {
-        var key = 'mp_cfg_' + btoa(this.config.apiKey).replace(/=/g, '').slice(0, 16);
-        localStorage.setItem(key, JSON.stringify(cfg));
-      } catch (e) {}
+    _fetchConfigThenCreate: function () {
+      var self = this;
+      fetch(self.config.panelUrl + '/api/widget-config', {
+        headers: { 'x-api-key': self.config.apiKey },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (cfg) {
+          if (cfg.buttonColor) self.config.buttonColor = cfg.buttonColor;
+          if (cfg.botName) self.config.botName = cfg.botName;
+          if (cfg.welcomeMessage) self.config.welcomeMessage = cfg.welcomeMessage;
+          if (typeof cfg.typingIndicator !== 'undefined') self.config.typingIndicator = cfg.typingIndicator;
+          if (typeof cfg.onlineIndicator !== 'undefined') self.config.onlineIndicator = cfg.onlineIndicator;
+        })
+        .catch(function () {})
+        .then(function () {
+          self._createWidget();
+        });
     },
 
     _getSessionId: function () {
@@ -225,15 +220,6 @@
       if (serverConfig.welcomeMessage) this.config.welcomeMessage = serverConfig.welcomeMessage;
       if (typeof serverConfig.typingIndicator !== 'undefined') this.config.typingIndicator = serverConfig.typingIndicator;
       if (typeof serverConfig.onlineIndicator !== 'undefined') this.config.onlineIndicator = serverConfig.onlineIndicator;
-
-      // Bir sonraki ziyaret için kaydet
-      this._saveCachedConfig({
-        buttonColor: this.config.buttonColor,
-        botName: this.config.botName,
-        welcomeMessage: this.config.welcomeMessage,
-        typingIndicator: this.config.typingIndicator,
-        onlineIndicator: this.config.onlineIndicator,
-      });
 
       var btn = document.getElementById('mp-btn');
       var header = document.getElementById('mp-header');
