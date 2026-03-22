@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import GlobalNotifier from './GlobalNotifier';
 
 const navItems = [
@@ -63,12 +63,26 @@ const navItems = [
   },
 ];
 
+interface MeUser { username: string; isSuperAdmin: boolean; isConnected: boolean; }
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [newCount, setNewCount] = useState(0);
+  const [me, setMe] = useState<MeUser | null>(null);
 
   const handleNewCount = useCallback((n: number) => setNewCount(n), []);
+
+  useEffect(() => {
+    fetch('/api/auth/me').then(r => r.json()).then(d => setMe(d.user)).catch(() => {});
+  }, [pathname]); // pathname değişince yenile (switch/restore sonrası)
+
+  async function handleRestore() {
+    await fetch('/api/auth/restore', { method: 'POST' });
+    router.push('/users');
+    router.refresh();
+    setMe(null);
+  }
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -151,8 +165,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
+      <main className="flex-1 overflow-auto flex flex-col">
+        {/* Bağlantı banner'ı - celkemr başka kullanıcıya bağlıyken göster */}
+        {me?.isConnected && (
+          <div className="flex items-center justify-between px-6 py-2.5 text-sm font-medium text-white shrink-0" style={{ background: 'linear-gradient(90deg,#f59e0b,#ef4444)' }}>
+            <div className="flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M8.25 6.75a3.75 3.75 0 1 1 7.5 0 3.75 3.75 0 0 1-7.5 0ZM15.75 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM2.25 9.75a3 3 0 1 1 6 0 3 3 0 0 1-6 0ZM6.31 15.117A6.745 6.745 0 0 1 12 12a6.745 6.745 0 0 1 6.709 7.498.75.75 0 1 1-1.48-.248A5.25 5.25 0 0 0 12 13.5a5.25 5.25 0 0 0-5.23 5.75.75.75 0 1 1-1.48.248A6.745 6.745 0 0 1 6.31 15.117Z" clipRule="evenodd" />
+              </svg>
+              <span><strong>{me.username}</strong> hesabına bağlandınız</span>
+            </div>
+            <button
+              onClick={handleRestore}
+              className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+            >
+              ← celkemr&apos;e Geri Dön
+            </button>
+          </div>
+        )}
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
       </main>
     </div>
   );

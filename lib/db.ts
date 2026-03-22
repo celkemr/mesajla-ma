@@ -160,6 +160,14 @@ async function ensureInit(): Promise<void> {
     const hash = hashPassword('admin123');
     await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'admin', hash] });
   }
+
+  // Süper admin celkemr yoksa oluştur
+  const sa = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['celkemr'] });
+  if (sa.rows.length === 0) {
+    const id = uuidv4();
+    const hash = hashPassword('celkemr2024!');
+    await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'celkemr', hash] });
+  }
 }
 
 // Yardımcı: tek satır dön
@@ -497,6 +505,10 @@ export async function getAllUsers() {
 
 export async function getUserByUsername(username: string) {
   return one<{ id: string; username: string; password_hash: string }>('SELECT * FROM users WHERE username = ?', [username]);
+}
+
+export async function getUserById(id: string) {
+  return one<{ id: string; username: string }>('SELECT id, username FROM users WHERE id = ?', [id]);
 }
 
 export async function createUser(username: string, password: string) {
