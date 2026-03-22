@@ -339,6 +339,23 @@
         });
     },
 
+    _playSound: function () {
+      try {
+        var ctx = new (window.AudioContext || window.webkitAudioContext)();
+        var o1 = ctx.createOscillator();
+        var o2 = ctx.createOscillator();
+        var g = ctx.createGain();
+        o1.connect(g); o2.connect(g); g.connect(ctx.destination);
+        o1.frequency.value = 880; o2.frequency.value = 1100;
+        o1.type = 'sine'; o2.type = 'sine';
+        g.gain.setValueAtTime(0, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+        o1.start(ctx.currentTime); o2.start(ctx.currentTime + 0.07);
+        o1.stop(ctx.currentTime + 0.35); o2.stop(ctx.currentTime + 0.4);
+      } catch (e) {}
+    },
+
     _startPolling: function () {
       var self = this;
       self._pollInterval = setInterval(function () {
@@ -350,10 +367,17 @@
             var msgs = data.messages || [];
             if (msgs.length > self._knownMsgCount) {
               var newMsgs = msgs.slice(self._knownMsgCount);
+              var hasAdminMsg = newMsgs.some(function (m) { return m.role === 'assistant'; });
               newMsgs.forEach(function (m) {
                 self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at);
               });
               self._knownMsgCount = msgs.length;
+              if (hasAdminMsg) {
+                self._playSound();
+                if (!self.isOpen) {
+                  self.toggle();
+                }
+              }
               if (!self.isOpen) {
                 var badge = document.getElementById('mp-badge');
                 if (badge) { badge.textContent = '!'; badge.style.display = 'flex'; }

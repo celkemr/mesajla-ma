@@ -30,13 +30,39 @@ export default function ConversationDetailPage() {
   const [togglingMode, setTogglingMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const knownMsgCount = useRef(0);
+
+  function playSound() {
+    try {
+      const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      const o1 = ctx.createOscillator();
+      const o2 = ctx.createOscillator();
+      const g = ctx.createGain();
+      o1.connect(g); o2.connect(g); g.connect(ctx.destination);
+      o1.frequency.value = 660; o2.frequency.value = 880;
+      o1.type = 'sine'; o2.type = 'sine';
+      g.gain.setValueAtTime(0, ctx.currentTime);
+      g.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+      o1.start(ctx.currentTime); o2.start(ctx.currentTime + 0.08);
+      o1.stop(ctx.currentTime + 0.4); o2.stop(ctx.currentTime + 0.45);
+    } catch {}
+  }
 
   const fetchConv = useCallback(() => {
     fetch(`/api/conversations/${id}`)
       .then((r) => r.json())
       .then((data) => {
         setConv((prev) => {
+          const prevCount = knownMsgCount.current;
           if (!prev || prev.messages.length !== data.messages.length || prev.mode !== data.mode || prev.status !== data.status) {
+            // Yeni kullanıcı mesajı geldiyse ses çal
+            if (prev && data.messages.length > prevCount) {
+              const newMsgs = data.messages.slice(prevCount);
+              const hasUserMsg = newMsgs.some((m: ChatMsg) => m.role === 'user');
+              if (hasUserMsg) playSound();
+            }
+            knownMsgCount.current = data.messages.length;
             return data;
           }
           return prev;
