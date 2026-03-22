@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useDialog } from '../components/useDialog';
 
 interface User {
   id: string;
@@ -8,6 +9,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const { confirm, showAlert, dialog } = useDialog();
   const [users, setUsers] = useState<User[]>([]);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -40,11 +42,11 @@ export default function UsersPage() {
   }
 
   async function deleteUser(id: string, name: string) {
-    if (!confirm(`"${name}" kullanıcısını silmek istediğinize emin misiniz?`)) return;
+    if (!(await confirm(`"${name}" kullanıcısını silmek istediğinize emin misiniz?`))) return;
     const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) {
-      alert(data.error || 'Silinemedi');
+      await showAlert(`❌ ${data.error || 'Silinemedi'}`);
       return;
     }
     load();
@@ -52,6 +54,7 @@ export default function UsersPage() {
 
   return (
     <div className="p-8">
+      {dialog}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Kullanıcılar</h2>
         <p className="text-slate-500 mt-1">Panel erişimi olan kullanıcıları yönetin</p>

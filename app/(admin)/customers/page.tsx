@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useDialog } from '../components/useDialog';
 
 interface Lead {
   id: string;
@@ -26,6 +27,7 @@ const STATUS: Record<string, { label: string; color: string; dot: string }> = {
 };
 
 export default function CustomersPage() {
+  const { confirm, dialog } = useDialog();
   const [leads, setLeads] = useState<Lead[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
@@ -64,7 +66,7 @@ export default function CustomersPage() {
   }
 
   async function deleteLead(id: string) {
-    if (!confirm('Bu müşteriyi silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm('Bu müşteriyi silmek istediğinize emin misiniz?'))) return;
     await fetch(`/api/leads/${id}`, { method: 'DELETE' });
     load();
   }
@@ -84,6 +86,7 @@ export default function CustomersPage() {
 
   return (
     <div className="p-8">
+      {dialog}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Müşteriler</h2>
         <p className="text-slate-500 mt-1">Widget üzerinden oluşan lead'ler</p>

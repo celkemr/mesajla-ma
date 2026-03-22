@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useDialog } from '../../components/useDialog';
 
 interface ChatMsg {
   id: string;
@@ -26,6 +27,7 @@ interface ConvDetail {
 export default function ConversationDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { confirm, dialog } = useDialog();
   const [conv, setConv] = useState<ConvDetail | null>(null);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
@@ -92,7 +94,7 @@ export default function ConversationDetailPage() {
   }
 
   async function deleteConv() {
-    if (!confirm('Bu konuşmayı silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm('Bu konuşmayı silmek istediğinize emin misiniz?'))) return;
     await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
     router.push('/conversations');
   }
@@ -139,6 +141,7 @@ export default function ConversationDetailPage() {
 
   return (
     <div className="flex flex-col h-screen">
+      {dialog}
       {/* Header */}
       <div className="p-6 border-b border-slate-100 bg-white flex items-start justify-between shrink-0">
         <div>

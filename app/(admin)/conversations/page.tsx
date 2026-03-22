@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useDialog } from '../components/useDialog';
 
 interface Conversation {
   id: string;
@@ -19,6 +20,7 @@ interface Conversation {
 export default function ConversationsPage() {
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [statusFilter, setStatusFilter] = useState('');
+  const { confirm, dialog } = useDialog();
 
   function load() {
     const params = new URLSearchParams();
@@ -37,13 +39,14 @@ export default function ConversationsPage() {
   }
 
   async function deleteConv(id: string) {
-    if (!confirm('Bu konuşmayı silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm('Bu konuşmayı silmek istediğinize emin misiniz?'))) return;
     await fetch(`/api/conversations/${id}`, { method: 'DELETE' });
     load();
   }
 
   return (
     <div className="p-8">
+      {dialog}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h2 className="text-2xl font-bold text-slate-800">Konuşmalar</h2>

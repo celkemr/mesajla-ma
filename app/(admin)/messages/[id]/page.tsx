@@ -2,6 +2,7 @@
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useDialog } from '../../components/useDialog';
 
 interface Reply {
   id: string;
@@ -33,6 +34,7 @@ const STATUS_LABELS: Record<string, { label: string; color: string }> = {
 export default function MessageDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
+  const { confirm, dialog } = useDialog();
   const [message, setMessage] = useState<Message | null>(null);
   const [replyText, setReplyText] = useState('');
   const [sending, setSending] = useState(false);
@@ -67,7 +69,7 @@ export default function MessageDetailPage({ params }: { params: Promise<{ id: st
   }
 
   async function deleteMessage() {
-    if (!confirm('Bu mesajı silmek istediğinize emin misiniz?')) return;
+    if (!(await confirm('Bu mesajı silmek istediğinize emin misiniz?'))) return;
     await fetch(`/api/messages/${id}`, { method: 'DELETE' });
     router.push('/messages');
   }
@@ -80,6 +82,7 @@ export default function MessageDetailPage({ params }: { params: Promise<{ id: st
 
   return (
     <div className="p-8 max-w-3xl">
+      {dialog}
       {/* Back */}
       <Link href="/messages" className="text-slate-500 text-sm hover:text-slate-700 flex items-center gap-1 mb-6">
         ← Mesajlara dön

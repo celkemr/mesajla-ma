@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useDialog } from '../components/useDialog';
 
 interface Site {
   id: string;
@@ -29,6 +30,7 @@ const DEFAULT_COLOR = '#2563eb';
 const DEFAULT_WELCOME = 'Merhaba! Size nasıl yardımcı olabilirim?';
 
 export default function SitesPage() {
+  const { confirm, showAlert, dialog } = useDialog();
   const [sites, setSites] = useState<Site[]>([]);
   const [newName, setNewName] = useState('');
   const [newDomain, setNewDomain] = useState('');
@@ -81,7 +83,7 @@ export default function SitesPage() {
   }
 
   async function deleteSite(id: string, name: string) {
-    if (!confirm(`"${name}" sitesini ve tüm verilerini silmek istediğinize emin misiniz?`)) return;
+    if (!(await confirm(`"${name}" sitesini ve tüm verilerini silmek istediğinize emin misiniz?`))) return;
     await fetch(`/api/sites/${id}`, { method: 'DELETE' });
     load();
   }
@@ -162,8 +164,8 @@ export default function SitesPage() {
         body: JSON.stringify({ botToken: editTelegramToken, chatId: editTelegramChat }),
       });
       const data = await res.json();
-      alert(data.ok ? '✅ Test mesajı gönderildi!' : `❌ Hata: ${data.error || 'Token ve Chat ID\'yi kontrol edin.'}`);
-    } catch { alert('❌ Bağlantı hatası.'); }
+      await showAlert(data.ok ? '✅ Test mesajı gönderildi!' : `❌ Hata: ${data.error || "Token ve Chat ID'yi kontrol edin."}`);
+    } catch { await showAlert('❌ Bağlantı hatası.'); }
     setTestingTelegram(false);
   }
 
@@ -179,11 +181,11 @@ export default function SitesPage() {
       const data = await res.json();
       if (data.ok) {
         setEditTelegramChat(data.chatId);
-        alert(`✅ Chat ID bulundu: ${data.chatId} (${data.chatTitle})\nKaydetmeyi unutmayın!`);
+        await showAlert(`✅ Chat ID bulundu: ${data.chatId} (${data.chatTitle})\nKaydetmeyi unutmayın!`);
       } else {
-        alert(`❌ ${data.error}`);
+        await showAlert(`❌ ${data.error}`);
       }
-    } catch { alert('❌ Bağlantı hatası.'); }
+    } catch { await showAlert('❌ Bağlantı hatası.'); }
     setFetchingChatId(false);
   }
 
@@ -196,6 +198,7 @@ export default function SitesPage() {
 
   return (
     <div className="p-8">
+      {dialog}
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-slate-800">Siteler</h2>
         <p className="text-slate-500 mt-1">Her site için ayrı bir AI chatbot yapılandırın</p>
