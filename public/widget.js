@@ -139,8 +139,29 @@
         this.style.height = Math.min(this.scrollHeight, 100) + 'px';
       });
 
-      // Welcome
-      this._addMessage('bot', this.config.welcomeMessage);
+      // Geçmiş yükle (yoksa karşılama mesajı göster)
+      this._loadHistory();
+    },
+
+    _loadHistory: function () {
+      var self = this;
+      fetch(self.config.panelUrl + '/api/chat?sessionId=' + encodeURIComponent(self.sessionId), {
+        headers: { 'x-api-key': self.config.apiKey },
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          var msgs = data.messages || [];
+          if (msgs.length === 0) {
+            self._addMessage('bot', self.config.welcomeMessage);
+          } else {
+            msgs.forEach(function (m) {
+              self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at);
+            });
+          }
+        })
+        .catch(function () {
+          self._addMessage('bot', self.config.welcomeMessage);
+        });
     },
 
     toggle: function () {
@@ -197,13 +218,13 @@
         });
     },
 
-    _addMessage: function (role, content) {
+    _addMessage: function (role, content, createdAt) {
       var messagesEl = document.getElementById('mp-messages');
       var div = document.createElement('div');
       div.className = 'mp-msg mp-' + role;
       if (role === 'user') div.style.background = this.config.buttonColor;
-      var now = new Date();
-      var time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      var d = createdAt ? new Date(createdAt) : new Date();
+      var time = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
       div.innerHTML = this._esc(content).replace(/\n/g, '<br>') + '<div class="mp-time">' + time + '</div>';
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
