@@ -8,7 +8,13 @@ import {
   updateConversationVisitor,
 } from '@/lib/db';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+export const dynamic = 'force-dynamic';
+
+let _openai: OpenAI | null = null;
+function getOpenAI() {
+  if (!_openai) _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  return _openai;
+}
 
 export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin') || '*';
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
     })),
   ];
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: openaiMessages,
     max_tokens: 1000,
