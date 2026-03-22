@@ -558,6 +558,7 @@
         body: JSON.stringify({
           sessionId: self.sessionId,
           currentPage: window.location.href,
+          referrer: document.referrer || undefined,
           visitorName: self._visitorInfo ? self._visitorInfo.name : undefined,
         }),
       }).catch(function () {});

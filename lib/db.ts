@@ -95,9 +95,14 @@ async function ensureInit(): Promise<void> {
       ip_address TEXT,
       country_code TEXT,
       current_page TEXT,
+      referrer TEXT,
+      device_type TEXT,
+      browser TEXT,
       user_agent TEXT,
       visitor_name TEXT,
+      first_seen TEXT NOT NULL DEFAULT (datetime('now')),
       last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+      page_history TEXT DEFAULT '[]',
       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
     );
   `);
@@ -106,6 +111,11 @@ async function ensureInit(): Promise<void> {
   const migrations = [
     "ALTER TABLE conversations ADD COLUMN mode TEXT NOT NULL DEFAULT 'ai'",
     "ALTER TABLE conversations ADD COLUMN visitor_phone TEXT",
+    "ALTER TABLE visitors ADD COLUMN referrer TEXT",
+    "ALTER TABLE visitors ADD COLUMN device_type TEXT",
+    "ALTER TABLE visitors ADD COLUMN browser TEXT",
+    "ALTER TABLE visitors ADD COLUMN first_seen TEXT NOT NULL DEFAULT (datetime('now'))",
+    "ALTER TABLE visitors ADD COLUMN page_history TEXT DEFAULT '[]'",
     "ALTER TABLE sites ADD COLUMN widget_position TEXT NOT NULL DEFAULT 'bottom-right'",
     "ALTER TABLE sites ADD COLUMN widget_color TEXT NOT NULL DEFAULT '#2563eb'",
     "ALTER TABLE sites ADD COLUMN widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?'",
@@ -407,34 +417,72 @@ export async function upsertVisitor(data: {
   ipAddress?: string;
   countryCode?: string;
   currentPage?: string;
+  referrer?: string;
+  deviceType?: string;
+  browser?: string;
   userAgent?: string;
   visitorName?: string;
 }) {
-  const existing = await one<{ id: string }>('SELECT id FROM visitors WHERE session_id = ? AND site_id = ?', [data.sessionId, data.siteId]);
+  const existing = await one<{ id: string; page_history: string | null; current_page: string | null }>(
+    'SELECT id, page_history, current_page FROM visitors WHERE session_id = ? AND site_id = ?',
+    [data.sessionId, data.siteId]
+  );
+
   if (existing) {
+    let history: { page: string; time: string }[] = [];
+    try { history = JSON.parse(existing.page_history || '[]'); } catch {}
+    if (data.currentPage && data.currentPage !== existing.current_page) {
+      history.push({ page: data.currentPage, time: new Date().toISOString() });
+      if (history.length > 15) history = history.slice(-15);
+    }
     await run(
-      "UPDATE visitors SET current_page = ?, last_seen = datetime('now'), visitor_name = COALESCE(?, visitor_name), ip_address = COALESCE(ip_address, ?), country_code = COALESCE(country_code, ?) WHERE id = ?",
-      [data.currentPage ?? null, data.visitorName ?? null, data.ipAddress ?? null, data.countryCode ?? null, existing.id]
+      "UPDATE visitors SET current_page = ?, last_seen = datetime('now'), visitor_name = COALESCE(?, visitor_name), ip_address = COALESCE(ip_address, ?), country_code = COALESCE(country_code, ?), device_type = COALESCE(device_type, ?), browser = COALESCE(browser, ?), page_history = ? WHERE id = ?",
+      [data.currentPage ?? null, data.visitorName ?? null, data.ipAddress ?? null, data.countryCode ?? null, data.deviceType ?? null, data.browser ?? null, JSON.stringify(history), existing.id]
     );
   } else {
     const id = uuidv4();
+    const history = data.currentPage ? JSON.stringify([{ page: data.currentPage, time: new Date().toISOString() }]) : '[]';
     await run(
-      'INSERT INTO visitors (id, site_id, session_id, ip_address, country_code, current_page, user_agent, visitor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, data.siteId, data.sessionId, data.ipAddress ?? null, data.countryCode ?? null, data.currentPage ?? null, data.userAgent ?? null, data.visitorName ?? null]
+      "INSERT INTO visitors (id, site_id, session_id, ip_address, country_code, current_page, referrer, device_type, browser, user_agent, visitor_name, first_seen, page_history) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?)",
+      [id, data.siteId, data.sessionId, data.ipAddress ?? null, data.countryCode ?? null, data.currentPage ?? null, data.referrer ?? null, data.deviceType ?? null, data.browser ?? null, data.userAgent ?? null, data.visitorName ?? null, history]
     );
   }
 }
 
 export async function getActiveVisitors(siteId?: string) {
   let query = `
-    SELECT v.*, s.name as site_name, s.domain as site_domain
-    FROM visitors v JOIN sites s ON s.id = v.site_id
+    SELECT v.*, s.name as site_name, s.domain as site_domain, c.id as conversation_id
+    FROM visitors v
+    JOIN sites s ON s.id = v.site_id
+    LEFT JOIN conversations c ON c.session_id = v.session_id AND c.site_id = v.site_id
     WHERE v.last_seen > datetime('now', '-3 minutes')
   `;
   const params: InValue[] = [];
   if (siteId) { query += ' AND v.site_id = ?'; params.push(siteId); }
   query += ' ORDER BY v.last_seen DESC';
   return all(query, params);
+}
+
+export async function getVisitorStats() {
+  await ensureInit();
+  const c = getClient();
+  const [todayCount, topCountries, hourlyData] = await Promise.all([
+    c.execute("SELECT COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', 'start of day')"),
+    c.execute("SELECT country_code, COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', '-7 days') AND country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 5"),
+    c.execute("SELECT CAST(strftime('%H', last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors WHERE last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour"),
+  ]);
+  return {
+    todayCount: Number(todayCount.rows[0]?.count ?? 0),
+    topCountries: topCountries.rows as { country_code: string; count: number }[],
+    hourlyData: hourlyData.rows as { hour: number; count: number }[],
+  };
+}
+
+export async function createProactiveMessage(siteId: string, sessionId: string, message: string) {
+  const conv = await getOrCreateConversation(siteId, sessionId);
+  await updateConversationMode(conv.id, 'human');
+  await addChatMessage(conv.id, 'assistant', message);
+  return conv;
 }
 
 export async function cleanupVisitors() {
