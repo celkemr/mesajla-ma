@@ -8,6 +8,8 @@ import {
   updateConversationVisitor,
   getConversationMessageCount,
   updateConversationSummary,
+  getLeadByConversation,
+  createLead,
 } from '@/lib/db';
 import {
   sendTelegramMessage,
@@ -59,13 +61,28 @@ export async function POST(req: NextRequest) {
   // Kaç mesaj var?
   const msgCount = await getConversationMessageCount(conversation.id);
 
-  // İlk mesaj ise: Telegram + CRM tetikle (fire & forget)
+  // İlk mesaj ise: Lead oluştur + Telegram + CRM tetikle (fire & forget)
   if (msgCount === 1) {
     const visitorInfo = {
       name: visitorName || conversation.visitor_name,
       email: visitorEmail || conversation.visitor_email,
       phone: visitorPhone || conversation.visitor_phone,
     };
+
+    // Yerel lead oluştur (ziyaretçi bilgisi varsa)
+    if (visitorInfo.name || visitorInfo.email || visitorInfo.phone) {
+      getLeadByConversation(conversation.id).then(existing => {
+        if (!existing) {
+          createLead({
+            siteId: site.id,
+            conversationId: conversation.id,
+            name: visitorInfo.name || undefined,
+            email: visitorInfo.email || undefined,
+            phone: visitorInfo.phone || undefined,
+          }).catch(console.error);
+        }
+      }).catch(console.error);
+    }
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
     const convLink = appUrl ? `\n🔗 <a href="${appUrl}/conversations/${conversation.id}">Konuşmaya git</a>` : '';
 

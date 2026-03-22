@@ -105,6 +105,20 @@ async function ensureInit(): Promise<void> {
       page_history TEXT DEFAULT '[]',
       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS leads (
+      id TEXT PRIMARY KEY,
+      site_id TEXT NOT NULL,
+      conversation_id TEXT,
+      name TEXT,
+      email TEXT,
+      phone TEXT,
+      status TEXT NOT NULL DEFAULT 'new',
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
+      FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
+    );
   `);
 
   // Mevcut tablolara widget kolonlarını ekle (migration)
@@ -421,6 +435,59 @@ export async function updateConversationMode(id: string, mode: string) {
 
 export async function deleteConversation(id: string) {
   await run('DELETE FROM conversations WHERE id = ?', [id]);
+}
+
+// --- Leads ---
+export interface Lead {
+  id: string;
+  site_id: string;
+  conversation_id: string | null;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  site_name?: string;
+}
+
+export async function getAllLeads(filters: { siteId?: string; status?: string } = {}) {
+  let query = `
+    SELECT l.*, s.name as site_name
+    FROM leads l
+    JOIN sites s ON s.id = l.site_id
+    WHERE 1=1
+  `;
+  const params: InValue[] = [];
+  if (filters.siteId) { query += ' AND l.site_id = ?'; params.push(filters.siteId); }
+  if (filters.status) { query += ' AND l.status = ?'; params.push(filters.status); }
+  query += ' ORDER BY l.created_at DESC';
+  return all<Lead>(query, params);
+}
+
+export async function getLeadByConversation(conversationId: string) {
+  return one<Lead>('SELECT * FROM leads WHERE conversation_id = ?', [conversationId]);
+}
+
+export async function createLead(data: { siteId: string; conversationId?: string; name?: string; email?: string; phone?: string }) {
+  const id = uuidv4();
+  await run(
+    'INSERT INTO leads (id, site_id, conversation_id, name, email, phone) VALUES (?, ?, ?, ?, ?, ?)',
+    [id, data.siteId, data.conversationId || null, data.name || null, data.email || null, data.phone || null],
+  );
+  return one<Lead>('SELECT * FROM leads WHERE id = ?', [id]);
+}
+
+export async function updateLead(id: string, data: { status?: string; notes?: string; name?: string; email?: string; phone?: string }) {
+  const entries = Object.entries(data).filter(([, v]) => v !== undefined);
+  if (entries.length === 0) return;
+  const fields = entries.map(([k]) => `${k} = ?`).join(', ');
+  const values = entries.map(([, v]) => v);
+  await run(`UPDATE leads SET ${fields} WHERE id = ?`, [...values, id]);
+}
+
+export async function deleteLead(id: string) {
+  await run('DELETE FROM leads WHERE id = ?', [id]);
 }
 
 // --- Users ---
