@@ -127,6 +127,10 @@
         '#mp-send:active{transform:scale(.94);}',
         '#mp-send:disabled{opacity:.35;cursor:default;transform:none;box-shadow:none;}',
         '#mp-send svg{width:18px;height:18px;fill:white;}',
+        /* === TOOLTIP BUBBLE === */
+        '#mp-bubble{position:fixed;background:white;border-radius:18px 18px 4px 18px;padding:10px 15px;font-size:13px;color:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.14);z-index:99997;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(6px) scale(.95);transition:opacity .3s ease,transform .3s ease;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-weight:500;}',
+        '#mp-bubble.mp-bubble-show{opacity:1;transform:translateY(0) scale(1);}',
+        '#mp-bubble::after{content:"";position:absolute;bottom:-7px;right:14px;width:13px;height:13px;background:white;clip-path:polygon(0 0,100% 0,100% 100%);}',
         /* === MOBILE === */
         '@media(max-width:480px){',
         '#mp-panel{width:100vw!important;height:100vh!important;bottom:0!important;left:0!important;right:0!important;border-radius:0!important;max-height:100dvh;}',
@@ -214,6 +218,50 @@
       });
 
       this._loadHistory();
+      this._startBubble();
+    },
+
+    _startBubble: function () {
+      var self = this;
+      var messages = [
+        'Merhaba! 👋 Size yardımcı olabilir miyim?',
+        'Bir sorunuz mu var? Buradayız!',
+        'Yardıma ihtiyacınız olursa yazın ✨',
+        'Merhaba! Nasıl yardımcı olabilirim?',
+      ];
+      var isLeft = this.config.position === 'bottom-left';
+
+      var bubble = document.createElement('div');
+      bubble.id = 'mp-bubble';
+      // ok yönü: sağda sağ köşede, solda sol köşede
+      if (isLeft) bubble.style.cssText = 'left:16px;';
+      else bubble.style.cssText = 'right:16px;';
+      if (isLeft) bubble.style.setProperty('border-radius', '18px 18px 18px 4px');
+      document.body.appendChild(bubble);
+
+      // ok pozisyonu sola göre ayarla
+      if (isLeft) {
+        var s = document.getElementById('mp-styles');
+        s.textContent += '#mp-bubble.mp-left::after{right:auto;left:14px;clip-path:polygon(0 0,100% 0,0 100%);}';
+        bubble.classList.add('mp-left');
+      }
+
+      function showBubble() {
+        if (self.isOpen) return;
+        var btn = document.getElementById('mp-btn');
+        if (!btn) return;
+        var rect = btn.getBoundingClientRect();
+        bubble.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+        bubble.textContent = messages[Math.floor(Math.random() * messages.length)];
+        bubble.classList.add('mp-bubble-show');
+        setTimeout(function () { bubble.classList.remove('mp-bubble-show'); }, 4000);
+      }
+
+      // İlk gösterim 4sn sonra, sonra her 25sn'de bir
+      setTimeout(function () {
+        showBubble();
+        setInterval(showBubble, 25000);
+      }, 4000);
     },
 
     _applyServerConfig: function (serverConfig) {
