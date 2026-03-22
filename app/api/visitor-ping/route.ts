@@ -40,20 +40,27 @@ export async function POST(req: NextRequest) {
   const countryCode = req.headers.get('x-vercel-ip-country') || undefined;
   const ua = req.headers.get('user-agent') || '';
 
-  await upsertVisitor({
-    siteId: site.id,
-    sessionId,
-    ipAddress: ip,
-    countryCode,
-    currentPage,
-    referrer: referrer || undefined,
-    deviceType: ua ? detectDevice(ua) : undefined,
-    browser: ua ? detectBrowser(ua) : undefined,
-    userAgent: ua || undefined,
-    visitorName,
-  });
+  try {
+    await upsertVisitor({
+      siteId: site.id,
+      sessionId,
+      ipAddress: ip,
+      countryCode,
+      currentPage,
+      referrer: referrer || undefined,
+      deviceType: ua ? detectDevice(ua) : undefined,
+      browser: ua ? detectBrowser(ua) : undefined,
+      userAgent: ua || undefined,
+      visitorName,
+    });
+  } catch (err) {
+    console.error('[visitor-ping] upsertVisitor error:', err);
+    return NextResponse.json({ ok: false, error: String(err) }, { status: 500, headers: corsHeaders });
+  }
 
-  if (Math.random() < 0.1) await cleanupVisitors();
+  if (Math.random() < 0.1) {
+    try { await cleanupVisitors(); } catch {}
+  }
 
   return NextResponse.json({ ok: true }, { headers: corsHeaders });
 }

@@ -96,7 +96,10 @@ export default function VisitorsPage() {
 
   function load() {
     fetch('/api/visitors')
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then(data => {
         const list: Visitor[] = data.visitors || [];
 
@@ -119,12 +122,12 @@ export default function VisitorsPage() {
         setLastUpdate(new Date());
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(err => { console.error('[visitors] fetch error:', err); setLoading(false); });
   }
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 10000);
+    const iv = setInterval(load, 5000);
     return () => clearInterval(iv);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [notifyEnabled]);
@@ -169,7 +172,7 @@ export default function VisitorsPage() {
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Anlık Ziyaretçiler</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Son 3 dakikada aktif · 10sn güncelleme</p>
+          <p className="text-slate-500 text-sm mt-0.5">Son 3 dakikada aktif · 5sn güncelleme</p>
         </div>
         <div className="flex items-center gap-3">
           <button
