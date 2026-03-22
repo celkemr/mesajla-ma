@@ -55,6 +55,7 @@ export default function SitesPage() {
   const [editPipedriveKey, setEditPipedriveKey] = useState('');
   const [editPipedriveDomain, setEditPipedriveDomain] = useState('');
   const [testingTelegram, setTestingTelegram] = useState(false);
+  const [fetchingChatId, setFetchingChatId] = useState(false);
   const [activeTab, setActiveTab] = useState<'bot' | 'widget' | 'integrations'>('bot');
 
   useEffect(() => {
@@ -164,6 +165,26 @@ export default function SitesPage() {
       alert(data.ok ? '✅ Test mesajı gönderildi!' : `❌ Hata: ${data.error || 'Token ve Chat ID\'yi kontrol edin.'}`);
     } catch { alert('❌ Bağlantı hatası.'); }
     setTestingTelegram(false);
+  }
+
+  async function fetchChatId() {
+    if (!editTelegramToken) return;
+    setFetchingChatId(true);
+    try {
+      const res = await fetch('/api/telegram-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botToken: editTelegramToken, action: 'getUpdates' }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setEditTelegramChat(data.chatId);
+        alert(`✅ Chat ID bulundu: ${data.chatId} (${data.chatTitle})\nKaydetmeyi unutmayın!`);
+      } else {
+        alert(`❌ ${data.error}`);
+      }
+    } catch { alert('❌ Bağlantı hatası.'); }
+    setFetchingChatId(false);
   }
 
   const tabClass = (tab: 'bot' | 'widget' | 'integrations') =>
@@ -448,12 +469,21 @@ export default function SitesPage() {
                               placeholder="Bot Token (örn: 123456:ABCdef...)"
                               className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            <input
-                              value={editTelegramChat}
-                              onChange={e => setEditTelegramChat(e.target.value)}
-                              placeholder="Chat ID (örn: -1001234567890)"
-                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                            <div className="flex gap-2">
+                              <input
+                                value={editTelegramChat}
+                                onChange={e => setEditTelegramChat(e.target.value)}
+                                placeholder="Chat ID (örn: 123456789)"
+                                className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                              />
+                              <button
+                                onClick={fetchChatId}
+                                disabled={!editTelegramToken || fetchingChatId}
+                                className="text-xs border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-40 whitespace-nowrap"
+                              >
+                                {fetchingChatId ? '...' : '🔍 Otomatik Bul'}
+                              </button>
+                            </div>
                             <button
                               onClick={testTelegram}
                               disabled={!editTelegramToken || !editTelegramChat || testingTelegram}
@@ -463,8 +493,9 @@ export default function SitesPage() {
                             </button>
                           </div>
                           <p className="text-xs text-slate-400 mt-2">
-                            1. @BotFather ile bot oluşturun → token alın<br/>
-                            2. Botu kanala/gruba ekleyin → Chat ID alın (@userinfobot ile)
+                            1. @BotFather&apos;dan token alın → buraya yapıştırın<br/>
+                            2. Bota Telegram&apos;dan <strong>/start</strong> yazın<br/>
+                            3. <strong>🔍 Otomatik Bul</strong> butonuna basın → Chat ID dolacak
                           </p>
                         </div>
 
