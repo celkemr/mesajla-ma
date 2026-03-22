@@ -60,7 +60,7 @@ export default function UsersPage() {
   }
 
   async function connectUser(userId: string, targetUsername: string) {
-    if (!(await confirm(`"${targetUsername}" kullanıcısının sistemine bağlanmak istiyor musunuz?`))) return;
+    if (!(await confirm(`"${targetUsername}" kullanıcısının sistemine bağlanmak istiyor musunuz?`, { variant: 'info', confirmLabel: 'Evet, Bağlan' }))) return;
     setConnecting(userId);
     const res = await fetch('/api/auth/switch', {
       method: 'POST',

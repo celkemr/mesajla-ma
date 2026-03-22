@@ -5,6 +5,7 @@ type DialogConfig = {
   message: string;
   type: 'confirm' | 'alert';
   variant: 'danger' | 'info' | 'success';
+  confirmLabel?: string;
   resolve: (val: boolean) => void;
 };
 
@@ -100,7 +101,7 @@ function DialogModal({ config, onClose }: { config: DialogConfig; onClose: (v: b
                     : {}
                 }
               >
-                Evet, Sil
+                {config.confirmLabel ?? 'Evet, Sil'}
               </button>
             </div>
           )}
@@ -129,9 +130,9 @@ function DialogModal({ config, onClose }: { config: DialogConfig; onClose: (v: b
 export function useDialog() {
   const [config, setConfig] = useState<DialogConfig | null>(null);
 
-  const confirm = useCallback((message: string): Promise<boolean> => {
+  const confirm = useCallback((message: string, options?: { variant?: 'danger' | 'info'; confirmLabel?: string }): Promise<boolean> => {
     return new Promise((resolve) => {
-      setConfig({ message, type: 'confirm', variant: 'danger', resolve });
+      setConfig({ message, type: 'confirm', variant: options?.variant ?? 'danger', confirmLabel: options?.confirmLabel, resolve });
     });
   }, []);
 
