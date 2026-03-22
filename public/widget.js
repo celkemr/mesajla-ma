@@ -20,6 +20,8 @@
         welcomeMessage: 'Merhaba! Size nasıl yardımcı olabilirim?',
         buttonColor: '#2563eb',
         placeholder: 'Mesajınızı yazın...',
+        typingIndicator: true,
+        onlineIndicator: true,
       }, config);
 
       this.sessionId = this._getSessionId();
@@ -101,7 +103,7 @@
         '  <div class="mp-avatar">🤖</div>',
         '  <div class="mp-info">',
         '    <div class="mp-name">' + this._esc(this.config.botName) + '</div>',
-        '    <div class="mp-status">Çevrimiçi</div>',
+        (this.config.onlineIndicator ? '    <div class="mp-status">Çevrimiçi</div>' : ''),
         '  </div>',
         '  <button id="mp-close-btn">✕</button>',
         '</div>',
@@ -190,7 +192,7 @@
       var self = this;
       self.isTyping = true;
       document.getElementById('mp-send').disabled = true;
-      self._showTyping();
+      if (self.config.typingIndicator) self._showTyping();
 
       fetch(self.config.panelUrl + '/api/chat', {
         method: 'POST',
@@ -205,13 +207,13 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
-          self._hideTyping();
+          if (self.config.typingIndicator) self._hideTyping();
           self.isTyping = false;
           document.getElementById('mp-send').disabled = false;
           self._addMessage('bot', data.reply || 'Üzgünüm, bir hata oluştu.');
         })
         .catch(function () {
-          self._hideTyping();
+          if (self.config.typingIndicator) self._hideTyping();
           self.isTyping = false;
           document.getElementById('mp-send').disabled = false;
           self._addMessage('bot', 'Bağlantı hatası. Lütfen tekrar deneyin.');

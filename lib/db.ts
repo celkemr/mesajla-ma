@@ -28,6 +28,11 @@ async function ensureInit(): Promise<void> {
       api_key TEXT NOT NULL UNIQUE,
       bot_name TEXT NOT NULL DEFAULT 'Asistan',
       system_prompt TEXT NOT NULL DEFAULT 'Sen yardımcı bir asistansın.',
+      widget_position TEXT NOT NULL DEFAULT 'bottom-right',
+      widget_color TEXT NOT NULL DEFAULT '#2563eb',
+      widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?',
+      widget_typing_indicator INTEGER NOT NULL DEFAULT 1,
+      widget_online_indicator INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -81,6 +86,18 @@ async function ensureInit(): Promise<void> {
     );
   `);
 
+  // Mevcut tablolara widget kolonlarını ekle (migration)
+  const migrations = [
+    "ALTER TABLE sites ADD COLUMN widget_position TEXT NOT NULL DEFAULT 'bottom-right'",
+    "ALTER TABLE sites ADD COLUMN widget_color TEXT NOT NULL DEFAULT '#2563eb'",
+    "ALTER TABLE sites ADD COLUMN widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?'",
+    "ALTER TABLE sites ADD COLUMN widget_typing_indicator INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE sites ADD COLUMN widget_online_indicator INTEGER NOT NULL DEFAULT 1",
+  ];
+  for (const sql of migrations) {
+    try { await c.execute(sql); } catch { /* kolon zaten varsa yok say */ }
+  }
+
   // Varsayılan admin yoksa oluştur
   const res = await c.execute('SELECT COUNT(*) as c FROM users');
   const count = Number(res.rows[0].c);
@@ -121,6 +138,11 @@ export interface Site {
   api_key: string;
   bot_name: string;
   system_prompt: string;
+  widget_position: string;
+  widget_color: string;
+  widget_welcome_message: string;
+  widget_typing_indicator: number;
+  widget_online_indicator: number;
   created_at: string;
 }
 
@@ -163,14 +185,35 @@ export async function getSiteById(id: string) {
   return one<Site>('SELECT * FROM sites WHERE id = ?', [id]);
 }
 
-export async function createSite(name: string, domain: string, botName = 'Asistan', systemPrompt = 'Sen yardımcı bir asistansın.') {
+export async function createSite(
+  name: string,
+  domain: string,
+  botName = 'Asistan',
+  systemPrompt = 'Sen yardımcı bir asistansın.',
+  widgetPosition = 'bottom-right',
+  widgetColor = '#2563eb',
+  widgetWelcomeMessage = 'Merhaba! Size nasıl yardımcı olabilirim?',
+  widgetTypingIndicator = 1,
+  widgetOnlineIndicator = 1,
+) {
   const id = uuidv4();
   const apiKey = `mk_${uuidv4().replace(/-/g, '')}`;
-  await run('INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt) VALUES (?, ?, ?, ?, ?, ?)', [id, name, domain, apiKey, botName, systemPrompt]);
+  await run(
+    'INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt, widget_position, widget_color, widget_welcome_message, widget_typing_indicator, widget_online_indicator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, domain, apiKey, botName, systemPrompt, widgetPosition, widgetColor, widgetWelcomeMessage, widgetTypingIndicator, widgetOnlineIndicator],
+  );
   return one<Site>('SELECT * FROM sites WHERE id = ?', [id]);
 }
 
-export async function updateSite(id: string, data: { bot_name?: string; system_prompt?: string }) {
+export async function updateSite(id: string, data: {
+  bot_name?: string;
+  system_prompt?: string;
+  widget_position?: string;
+  widget_color?: string;
+  widget_welcome_message?: string;
+  widget_typing_indicator?: number;
+  widget_online_indicator?: number;
+}) {
   const entries = Object.entries(data).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return getSiteById(id);
   const fields = entries.map(([k]) => `${k} = ?`).join(', ');

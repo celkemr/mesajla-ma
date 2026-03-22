@@ -6,10 +6,20 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { name, domain, botName, systemPrompt } = await req.json();
+  const { name, domain, botName, systemPrompt, widgetPosition, widgetColor, widgetWelcomeMessage, widgetTypingIndicator, widgetOnlineIndicator } = await req.json();
   if (!name?.trim() || !domain?.trim()) {
     return NextResponse.json({ error: 'name and domain are required' }, { status: 400 });
   }
-  const site = await createSite(name.trim(), domain.trim(), botName?.trim(), systemPrompt?.trim());
+  const site = await createSite(
+    name.trim(),
+    domain.trim(),
+    botName?.trim(),
+    systemPrompt?.trim(),
+    widgetPosition ?? 'bottom-right',
+    widgetColor ?? '#2563eb',
+    widgetWelcomeMessage?.trim() ?? 'Merhaba! Size nasıl yardımcı olabilirim?',
+    widgetTypingIndicator ?? 1,
+    widgetOnlineIndicator ?? 1,
+  );
   return NextResponse.json(site);
 }
