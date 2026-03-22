@@ -16,6 +16,7 @@ interface ConvDetail {
   visitor_name: string | null;
   visitor_email: string | null;
   status: string;
+  mode: string;
   created_at: string;
   messages: ChatMsg[];
 }
@@ -26,6 +27,7 @@ export default function ConversationDetailPage() {
   const [conv, setConv] = useState<ConvDetail | null>(null);
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
+  const [togglingMode, setTogglingMode] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -34,8 +36,7 @@ export default function ConversationDetailPage() {
       .then((r) => r.json())
       .then((data) => {
         setConv((prev) => {
-          // Sadece mesaj sayısı değiştiyse state'i güncelle
-          if (!prev || prev.messages.length !== data.messages.length) {
+          if (!prev || prev.messages.length !== data.messages.length || prev.mode !== data.mode || prev.status !== data.status) {
             return data;
           }
           return prev;
@@ -68,6 +69,19 @@ export default function ConversationDetailPage() {
     router.push('/conversations');
   }
 
+  async function toggleMode() {
+    if (!conv || togglingMode) return;
+    const newMode = conv.mode === 'ai' ? 'human' : 'ai';
+    setTogglingMode(true);
+    await fetch(`/api/conversations/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: newMode }),
+    });
+    setConv((c) => c ? { ...c, mode: newMode } : c);
+    setTogglingMode(false);
+  }
+
   async function sendReply() {
     if (!reply.trim() || sending) return;
     setSending(true);
@@ -93,6 +107,8 @@ export default function ConversationDetailPage() {
 
   if (!conv) return <div className="p-8 text-slate-400">Yükleniyor...</div>;
 
+  const isHuman = conv.mode === 'human';
+
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
@@ -104,7 +120,7 @@ export default function ConversationDetailPage() {
           <h2 className="text-xl font-bold text-slate-800">
             {conv.visitor_name || 'Anonim'} ile Konuşma
           </h2>
-          <div className="flex gap-3 mt-1 text-sm text-slate-500 flex-wrap">
+          <div className="flex gap-3 mt-1 text-sm text-slate-500 flex-wrap items-center">
             {conv.visitor_email && <span>{conv.visitor_email}</span>}
             <span>Site: {conv.site_name}</span>
             <span>{new Date(conv.created_at).toLocaleString('tr-TR')}</span>
@@ -115,7 +131,22 @@ export default function ConversationDetailPage() {
             </span>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
+          {/* AI / Canlı Destek toggle */}
+          <button
+            onClick={toggleMode}
+            disabled={togglingMode}
+            title={isHuman ? 'AI moduna geç (şu an sen yanıtlıyorsun)' : 'Canlı destek moduna geç (AI yanıtlamayı durdurur)'}
+            className={`flex items-center gap-2 text-sm px-4 py-2 rounded-lg border font-medium transition-colors disabled:opacity-50 ${
+              isHuman
+                ? 'bg-orange-50 border-orange-300 text-orange-700 hover:bg-orange-100'
+                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${isHuman ? 'bg-orange-500 animate-pulse' : 'bg-slate-400'}`} />
+            {isHuman ? 'Canlı Destek' : 'AI Modu'}
+          </button>
+
           {conv.status === 'active' && (
             <button onClick={closeConv} className="text-sm border border-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors">
               Kapat
@@ -126,6 +157,14 @@ export default function ConversationDetailPage() {
           </button>
         </div>
       </div>
+
+      {/* Mode banner */}
+      {isHuman && (
+        <div className="bg-orange-50 border-b border-orange-200 px-6 py-2 text-sm text-orange-700 flex items-center gap-2 shrink-0">
+          <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+          <strong>Canlı Destek modu aktif</strong> — AI yanıt vermiyor. Sen yanıtlıyorsun.
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">

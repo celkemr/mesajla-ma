@@ -43,6 +43,10 @@ export async function POST(req: NextRequest) {
 
   await addChatMessage(conversation.id, 'user', message);
 
+  if (conversation.mode === 'human') {
+    return NextResponse.json({ reply: null, humanMode: true, conversationId: conversation.id }, { headers: corsHeaders });
+  }
+
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ reply: 'Bot henüz yapılandırılmadı. Lütfen yönetici ile iletişime geçin.', conversationId: conversation.id }, { headers: corsHeaders });
   }

@@ -72,6 +72,7 @@ async function ensureInit(): Promise<void> {
       visitor_name TEXT,
       visitor_email TEXT,
       status TEXT NOT NULL DEFAULT 'active',
+      mode TEXT NOT NULL DEFAULT 'ai',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
@@ -89,6 +90,7 @@ async function ensureInit(): Promise<void> {
 
   // Mevcut tablolara widget kolonlarını ekle (migration)
   const migrations = [
+    "ALTER TABLE conversations ADD COLUMN mode TEXT NOT NULL DEFAULT 'ai'",
     "ALTER TABLE sites ADD COLUMN widget_position TEXT NOT NULL DEFAULT 'bottom-right'",
     "ALTER TABLE sites ADD COLUMN widget_color TEXT NOT NULL DEFAULT '#2563eb'",
     "ALTER TABLE sites ADD COLUMN widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?'",
@@ -164,6 +166,7 @@ export interface Conversation {
   visitor_name: string | null;
   visitor_email: string | null;
   status: string;
+  mode: string;
   created_at: string;
   updated_at: string;
 }
@@ -345,6 +348,10 @@ export async function getConversationMessages(conversationId: string): Promise<C
 
 export async function updateConversationStatus(id: string, status: string) {
   await run('UPDATE conversations SET status = ? WHERE id = ?', [status, id]);
+}
+
+export async function updateConversationMode(id: string, mode: string) {
+  await run('UPDATE conversations SET mode = ? WHERE id = ?', [mode, id]);
 }
 
 export async function deleteConversation(id: string) {

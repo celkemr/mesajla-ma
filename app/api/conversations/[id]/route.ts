@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getConversationById, updateConversationStatus, deleteConversation, addChatMessage } from '@/lib/db';
+import { getConversationById, updateConversationStatus, updateConversationMode, deleteConversation, addChatMessage } from '@/lib/db';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -10,8 +10,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { status } = await req.json();
-  await updateConversationStatus(id, status);
+  const body = await req.json();
+  if (body.status) await updateConversationStatus(id, body.status);
+  if (body.mode) await updateConversationMode(id, body.mode);
   return NextResponse.json({ success: true });
 }
 

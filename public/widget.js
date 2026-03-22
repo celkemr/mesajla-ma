@@ -6,6 +6,8 @@
     sessionId: null,
     isOpen: false,
     isTyping: false,
+    _knownMsgCount: 0,
+    _pollInterval: null,
 
     init: function (config) {
       if (!config || !config.apiKey) {
@@ -219,6 +221,7 @@
       });
 
       this._loadHistory();
+      this._startPolling();
       this._startBubble();
     },
 
@@ -323,15 +326,42 @@
           var msgs = data.messages || [];
           if (msgs.length === 0) {
             self._addMessage('bot', self.config.welcomeMessage);
+            self._knownMsgCount = 0;
           } else {
             msgs.forEach(function (m) {
               self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at);
             });
+            self._knownMsgCount = msgs.length;
           }
         })
         .catch(function () {
           self._addMessage('bot', self.config.welcomeMessage);
         });
+    },
+
+    _startPolling: function () {
+      var self = this;
+      self._pollInterval = setInterval(function () {
+        fetch(self.config.panelUrl + '/api/chat?sessionId=' + encodeURIComponent(self.sessionId), {
+          headers: { 'x-api-key': self.config.apiKey },
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            var msgs = data.messages || [];
+            if (msgs.length > self._knownMsgCount) {
+              var newMsgs = msgs.slice(self._knownMsgCount);
+              newMsgs.forEach(function (m) {
+                self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at);
+              });
+              self._knownMsgCount = msgs.length;
+              if (!self.isOpen) {
+                var badge = document.getElementById('mp-badge');
+                if (badge) { badge.textContent = '!'; badge.style.display = 'flex'; }
+              }
+            }
+          })
+          .catch(function () {});
+      }, 3000);
     },
 
     toggle: function () {
@@ -356,6 +386,7 @@
       input.value = '';
       input.style.height = 'auto';
       this._addMessage('user', text);
+      this._knownMsgCount++;
       this._sendToApi(text);
     },
 
@@ -381,13 +412,19 @@
           if (self.config.typingIndicator) self._hideTyping();
           self.isTyping = false;
           document.getElementById('mp-send').disabled = false;
-          self._addMessage('bot', data.reply || self._t('error'));
+          if (data.humanMode) {
+            // Admin cevap verecek, polling beklesin
+          } else {
+            self._addMessage('bot', data.reply || self._t('error'));
+            self._knownMsgCount++;
+          }
         })
         .catch(function () {
           if (self.config.typingIndicator) self._hideTyping();
           self.isTyping = false;
           document.getElementById('mp-send').disabled = false;
           self._addMessage('bot', self._t('conn_error'));
+          self._knownMsgCount++;
         });
     },
 
