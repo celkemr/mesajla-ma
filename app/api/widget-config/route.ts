@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
     typingIndicator: site.widget_typing_indicator,
     onlineIndicator: site.widget_online_indicator,
     widgetPosition: site.widget_position,
+    language: site.widget_language || 'tr',
   }, { headers: corsHeaders });
 }
 

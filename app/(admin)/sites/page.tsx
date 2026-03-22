@@ -13,6 +13,7 @@ interface Site {
   widget_welcome_message: string;
   widget_typing_indicator: number;
   widget_online_indicator: number;
+  widget_language: string;
   created_at: string;
   message_count: number;
   unread_count: number;
@@ -40,6 +41,7 @@ export default function SitesPage() {
   const [editWelcome, setEditWelcome] = useState(DEFAULT_WELCOME);
   const [editTyping, setEditTyping] = useState(true);
   const [editOnline, setEditOnline] = useState(true);
+  const [editLanguage, setEditLanguage] = useState('tr');
   const [activeTab, setActiveTab] = useState<'bot' | 'widget'>('bot');
 
   useEffect(() => {
@@ -82,6 +84,7 @@ export default function SitesPage() {
         widget_welcome_message: editWelcome,
         widget_typing_indicator: editTyping ? 1 : 0,
         widget_online_indicator: editOnline ? 1 : 0,
+        widget_language: editLanguage,
       }),
     });
     setEditingId(null);
@@ -97,6 +100,7 @@ export default function SitesPage() {
     setEditWelcome(site.widget_welcome_message || DEFAULT_WELCOME);
     setEditTyping(site.widget_typing_indicator !== 0);
     setEditOnline(site.widget_online_indicator !== 0);
+    setEditLanguage(site.widget_language || 'tr');
     setActiveTab('bot');
   }
 
@@ -245,6 +249,26 @@ export default function SitesPage() {
                             onChange={(e) => setEditBotName(e.target.value)}
                             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                           />
+                        </div>
+                        <div>
+                          <label className="text-xs font-medium text-slate-600 mb-1 block">Yanıt Dili</label>
+                          <select
+                            value={editLanguage}
+                            onChange={(e) => setEditLanguage(e.target.value)}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="tr">🇹🇷 Türkçe</option>
+                            <option value="en">🇬🇧 English</option>
+                            <option value="de">🇩🇪 Deutsch</option>
+                            <option value="fr">🇫🇷 Français</option>
+                            <option value="es">🇪🇸 Español</option>
+                            <option value="ar">🇸🇦 العربية</option>
+                            <option value="ru">🇷🇺 Русский</option>
+                            <option value="nl">🇳🇱 Nederlands</option>
+                            <option value="it">🇮🇹 Italiano</option>
+                            <option value="pt">🇧🇷 Português</option>
+                          </select>
+                          <p className="text-xs text-slate-400 mt-1">Bot bu dilde yanıt verir. Sistem promptunu etkilemez.</p>
                         </div>
                         <div>
                           <label className="text-xs font-medium text-slate-600 mb-1 block">Sistem Prompt</label>

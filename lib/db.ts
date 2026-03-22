@@ -33,6 +33,7 @@ async function ensureInit(): Promise<void> {
       widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?',
       widget_typing_indicator INTEGER NOT NULL DEFAULT 1,
       widget_online_indicator INTEGER NOT NULL DEFAULT 1,
+      widget_language TEXT NOT NULL DEFAULT 'tr',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -93,6 +94,7 @@ async function ensureInit(): Promise<void> {
     "ALTER TABLE sites ADD COLUMN widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?'",
     "ALTER TABLE sites ADD COLUMN widget_typing_indicator INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE sites ADD COLUMN widget_online_indicator INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE sites ADD COLUMN widget_language TEXT NOT NULL DEFAULT 'tr'",
   ];
   for (const sql of migrations) {
     try { await c.execute(sql); } catch { /* kolon zaten varsa yok say */ }
@@ -143,6 +145,7 @@ export interface Site {
   widget_welcome_message: string;
   widget_typing_indicator: number;
   widget_online_indicator: number;
+  widget_language: string;
   created_at: string;
 }
 
@@ -213,6 +216,7 @@ export async function updateSite(id: string, data: {
   widget_welcome_message?: string;
   widget_typing_indicator?: number;
   widget_online_indicator?: number;
+  widget_language?: string;
 }) {
   const entries = Object.entries(data).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return getSiteById(id);

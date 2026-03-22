@@ -53,6 +53,7 @@
           if (cfg.welcomeMessage) self.config.welcomeMessage = cfg.welcomeMessage;
           if (typeof cfg.typingIndicator !== 'undefined') self.config.typingIndicator = cfg.typingIndicator;
           if (typeof cfg.onlineIndicator !== 'undefined') self.config.onlineIndicator = cfg.onlineIndicator;
+          if (cfg.language) self.config.language = cfg.language;
         })
         .catch(function () {})
         .then(function () {
@@ -223,12 +224,20 @@
 
     _startBubble: function () {
       var self = this;
-      var messages = [
-        'Merhaba! 👋 Size yardımcı olabilir miyim?',
-        'Bir sorunuz mu var? Buradayız!',
-        'Yardıma ihtiyacınız olursa yazın ✨',
-        'Merhaba! Nasıl yardımcı olabilirim?',
-      ];
+      var bubbleMessages = {
+        tr: ['Merhaba! 👋 Size yardımcı olabilir miyim?', 'Bir sorunuz mu var? Buradayız!', 'Yardıma ihtiyacınız olursa yazın ✨', 'Nasıl yardımcı olabilirim?'],
+        en: ['Hello! 👋 Can I help you?', 'Got a question? We\'re here!', 'Need help? Just write ✨', 'How can I assist you?'],
+        de: ['Hallo! 👋 Kann ich helfen?', 'Haben Sie Fragen? Wir sind da!', 'Schreiben Sie uns ✨', 'Wie kann ich helfen?'],
+        fr: ['Bonjour! 👋 Puis-je vous aider?', 'Une question? Nous sommes là!', 'Écrivez-nous ✨', 'Comment puis-je vous aider?'],
+        es: ['¡Hola! 👋 ¿Puedo ayudarte?', '¿Tienes preguntas? ¡Aquí estamos!', 'Escríbenos ✨', '¿Cómo puedo ayudarte?'],
+        ar: ['مرحباً! 👋 كيف يمكنني مساعدتك؟', 'هل لديك سؤال؟ نحن هنا!', 'اكتب لنا ✨', 'كيف أساعدك؟'],
+        ru: ['Привет! 👋 Могу ли я помочь?', 'Есть вопросы? Мы здесь!', 'Напишите нам ✨', 'Как я могу помочь?'],
+        nl: ['Hallo! 👋 Kan ik u helpen?', 'Heeft u vragen? Wij zijn er!', 'Schrijf ons ✨', 'Hoe kan ik helpen?'],
+        it: ['Ciao! 👋 Posso aiutarti?', 'Hai domande? Siamo qui!', 'Scrivici ✨', 'Come posso aiutarti?'],
+        pt: ['Olá! 👋 Posso ajudar?', 'Tem perguntas? Estamos aqui!', 'Escreva-nos ✨', 'Como posso ajudar?'],
+      };
+      var lang = self.config.language || 'tr';
+      var messages = bubbleMessages[lang] || bubbleMessages['tr'];
       var isLeft = this.config.position === 'bottom-left';
 
       var bubble = document.createElement('div');

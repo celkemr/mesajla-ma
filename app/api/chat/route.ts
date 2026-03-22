@@ -47,9 +47,24 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ reply: 'Bot henüz yapılandırılmadı. Lütfen yönetici ile iletişime geçin.', conversationId: conversation.id }, { headers: corsHeaders });
   }
 
+  const languageInstructions: Record<string, string> = {
+    tr: 'Her zaman Türkçe yanıt ver.',
+    en: 'Always respond in English.',
+    de: 'Antworte immer auf Deutsch.',
+    fr: 'Réponds toujours en français.',
+    es: 'Responde siempre en español.',
+    ar: 'أجب دائماً باللغة العربية.',
+    ru: 'Всегда отвечай на русском языке.',
+    nl: 'Antwoord altijd in het Nederlands.',
+    it: 'Rispondi sempre in italiano.',
+    pt: 'Responda sempre em português.',
+  };
+  const langNote = languageInstructions[site.widget_language || 'tr'] || languageInstructions['tr'];
+  const systemPrompt = `${site.system_prompt}\n\n${langNote}`;
+
   const history = await getConversationMessages(conversation.id);
   const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: site.system_prompt },
+    { role: 'system', content: systemPrompt },
     ...history.slice(-20).map((m) => ({
       role: m.role as 'user' | 'assistant',
       content: m.content,
