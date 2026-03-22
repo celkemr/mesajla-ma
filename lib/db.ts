@@ -473,8 +473,8 @@ export async function getVisitorStats() {
   ]);
   return {
     todayCount: Number(todayCount.rows[0]?.count ?? 0),
-    topCountries: topCountries.rows as { country_code: string; count: number }[],
-    hourlyData: hourlyData.rows as { hour: number; count: number }[],
+    topCountries: topCountries.rows as unknown as { country_code: string; count: number }[],
+    hourlyData: hourlyData.rows as unknown as { hour: number; count: number }[],
   };
 }
 
