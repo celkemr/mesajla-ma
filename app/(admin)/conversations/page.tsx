@@ -8,6 +8,7 @@ interface Conversation {
   site_domain: string;
   visitor_name: string | null;
   visitor_email: string | null;
+  visitor_phone: string | null;
   status: string;
   message_count: number;
   last_message_at: string | null;
@@ -83,7 +84,8 @@ export default function ConversationsPage() {
                   <td className="px-6 py-4">
                     <Link href={`/conversations/${c.id}`} className="hover:text-blue-600">
                       <div className="font-medium text-slate-800">{c.visitor_name || 'Anonim'}</div>
-                      {c.visitor_email && <div className="text-slate-400 text-xs">{c.visitor_email}</div>}
+                      {c.visitor_phone && <div className="text-slate-400 text-xs">📞 {c.visitor_phone}</div>}
+                      {c.visitor_email && <div className="text-slate-400 text-xs">✉️ {c.visitor_email}</div>}
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-slate-500">{c.site_name}</td>

@@ -8,6 +8,7 @@
     isTyping: false,
     _knownMsgCount: 0,
     _pollInterval: null,
+    _visitorInfo: null,
 
     init: function (config) {
       if (!config || !config.apiKey) {
@@ -134,6 +135,25 @@
         '#mp-bubble{position:fixed;background:white;border-radius:18px 18px 4px 18px;padding:10px 15px;font-size:13px;color:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.14);z-index:99997;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(6px) scale(.95);transition:opacity .3s ease,transform .3s ease;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-weight:500;}',
         '#mp-bubble.mp-bubble-show{opacity:1;transform:translateY(0) scale(1);}',
         '#mp-bubble::after{content:"";position:absolute;bottom:-7px;right:14px;width:13px;height:13px;background:white;clip-path:polygon(0 0,100% 0,100% 100%);}',
+        /* === PRE-CHAT FORM === */
+        '#mp-prechat{flex:1;overflow-y:auto;padding:24px 18px 18px;background:#f8fafc;display:none;flex-direction:column;}',
+        '#mp-prechat.mp-pf-show{display:flex;}',
+        '#mp-messages.mp-pf-hidden,#mp-input-area.mp-pf-hidden{display:none!important;}',
+        '.mp-pf-title{font-size:15px;font-weight:700;color:#1e293b;margin-bottom:4px;}',
+        '.mp-pf-sub{font-size:12px;color:#64748b;margin-bottom:18px;line-height:1.5;}',
+        '.mp-pf-field{margin-bottom:13px;}',
+        '.mp-pf-label{display:block;font-size:11.5px;font-weight:600;color:#374151;margin-bottom:5px;letter-spacing:.01em;}',
+        '.mp-pf-label span{color:#ef4444;}',
+        '.mp-pf-input{width:100%;box-sizing:border-box;border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 12px;font-size:13px;outline:none;font-family:inherit;transition:border-color .2s,box-shadow .2s;background:white;color:#1e293b;}',
+        '.mp-pf-input:focus{border-color:#93c5fd;box-shadow:0 0 0 3px rgba(147,197,253,.18);}',
+        '.mp-pf-phone-row{display:flex;gap:6px;}',
+        '.mp-pf-select{border:1.5px solid #e2e8f0;border-radius:10px;padding:9px 6px;font-size:12px;outline:none;background:white;cursor:pointer;flex-shrink:0;width:105px;transition:border-color .2s;}',
+        '.mp-pf-select:focus{border-color:#93c5fd;}',
+        '.mp-pf-phone-row .mp-pf-input{flex:1;min-width:0;}',
+        '#mp-pf-error{font-size:11.5px;color:#ef4444;margin-bottom:8px;min-height:16px;font-weight:500;}',
+        '.mp-pf-btn{width:100%;padding:11px;border-radius:12px;border:none;color:white;font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s,transform .15s;letter-spacing:.01em;}',
+        '.mp-pf-btn:hover{opacity:.88;transform:translateY(-1px);}',
+        '.mp-pf-btn:active{transform:translateY(0);}',
         /* === MOBILE === */
         '@media(max-width:480px){',
         '#mp-panel{width:100vw!important;height:100vh!important;bottom:0!important;left:0!important;right:0!important;border-radius:0!important;max-height:100dvh;}',
@@ -173,7 +193,28 @@
         '    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>',
         '  </button>',
         '</div>',
-        '<div id="mp-messages"></div>',
+        '<div id="mp-prechat">',
+      '  <div class="mp-pf-title">' + this._t('pf_title') + '</div>',
+      '  <div class="mp-pf-sub">' + this._t('pf_sub') + '</div>',
+      '  <div class="mp-pf-field">',
+      '    <label class="mp-pf-label">' + this._t('pf_name') + ' <span>*</span></label>',
+      '    <input type="text" id="mp-f-name" class="mp-pf-input" placeholder="' + this._t('pf_name_ph') + '" autocomplete="name">',
+      '  </div>',
+      '  <div class="mp-pf-field">',
+      '    <label class="mp-pf-label">' + this._t('pf_phone') + ' <span>*</span></label>',
+      '    <div class="mp-pf-phone-row">',
+      '      <select id="mp-f-country" class="mp-pf-select">' + this._countryOptions() + '</select>',
+      '      <input type="tel" id="mp-f-phone" class="mp-pf-input" placeholder="' + this._t('pf_phone_ph') + '" autocomplete="tel-national">',
+      '    </div>',
+      '  </div>',
+      '  <div class="mp-pf-field">',
+      '    <label class="mp-pf-label">' + this._t('pf_email') + ' <span>*</span></label>',
+      '    <input type="email" id="mp-f-email" class="mp-pf-input" placeholder="' + this._t('pf_email_ph') + '" autocomplete="email">',
+      '  </div>',
+      '  <div id="mp-pf-error"></div>',
+      '  <button id="mp-pf-submit" class="mp-pf-btn" style="background:' + color + '">' + this._t('pf_start') + '</button>',
+      '</div>',
+      '<div id="mp-messages"></div>',
         '<div id="mp-input-area">',
         '  <textarea id="mp-input" rows="1" placeholder="' + this._esc(this.config.placeholder || this._t('placeholder')) + '" aria-label="' + this._t('write_message') + '"></textarea>',
         '  <button id="mp-send" style="background:' + color + '" aria-label="' + this._t('send') + '">',
@@ -236,6 +277,18 @@
         close_chat:   { tr:'Sohbeti kapat', en:'Close chat', de:'Chat schließen', fr:'Fermer le chat', es:'Cerrar chat', ar:'إغلاق المحادثة', ru:'Закрыть чат', nl:'Chat sluiten', it:'Chiudi chat', pt:'Fechar chat' },
         error:        { tr:'Üzgünüm, bir hata oluştu.', en:'Sorry, an error occurred.', de:'Entschuldigung, ein Fehler ist aufgetreten.', fr:'Désolé, une erreur s\'est produite.', es:'Lo siento, ocurrió un error.', ar:'عذراً، حدث خطأ.', ru:'Извините, произошла ошибка.', nl:'Sorry, er is een fout opgetreden.', it:'Spiacente, si è verificato un errore.', pt:'Desculpe, ocorreu um erro.' },
         conn_error:   { tr:'Bağlantı hatası. Lütfen tekrar deneyin.', en:'Connection error. Please try again.', de:'Verbindungsfehler. Bitte versuchen Sie es erneut.', fr:'Erreur de connexion. Veuillez réessayer.', es:'Error de conexión. Por favor, inténtelo de nuevo.', ar:'خطأ في الاتصال. يرجى المحاولة مرة أخرى.', ru:'Ошибка соединения. Пожалуйста, попробуйте снова.', nl:'Verbindingsfout. Probeer het opnieuw.', it:'Errore di connessione. Riprova.', pt:'Erro de conexão. Por favor, tente novamente.' },
+        pf_title:     { tr:'Bilgilerinizi girin', en:'Enter your details', de:'Ihre Daten eingeben', fr:'Vos informations', es:'Sus datos', ar:'أدخل بياناتك', ru:'Введите данные', nl:'Uw gegevens', it:'I tuoi dati', pt:'Seus dados' },
+        pf_sub:       { tr:'Size daha hızlı yardımcı olabilmemiz için bilgilerinizi paylaşın.', en:'Share your info so we can help you faster.', de:'Teilen Sie Ihre Daten für schnellere Hilfe.', fr:'Partagez vos infos pour une aide plus rapide.', es:'Comparte tus datos para una ayuda más rápida.', ar:'شارك بياناتك للمساعدة السريعة.', ru:'Поделитесь данными для быстрой помощи.', nl:'Deel uw gegevens voor snellere hulp.', it:'Condividi i tuoi dati per aiuto rapido.', pt:'Compartilhe seus dados para ajuda mais rápida.' },
+        pf_name:      { tr:'Ad Soyad', en:'Full Name', de:'Vollständiger Name', fr:'Nom complet', es:'Nombre completo', ar:'الاسم الكامل', ru:'Полное имя', nl:'Volledige naam', it:'Nome completo', pt:'Nome completo' },
+        pf_name_ph:   { tr:'Adınız Soyadınız', en:'Your full name', de:'Ihr vollständiger Name', fr:'Votre nom complet', es:'Su nombre completo', ar:'اسمك الكامل', ru:'Ваше полное имя', nl:'Uw volledige naam', it:'Il tuo nome completo', pt:'Seu nome completo' },
+        pf_phone:     { tr:'Telefon', en:'Phone', de:'Telefon', fr:'Téléphone', es:'Teléfono', ar:'الهاتف', ru:'Телефон', nl:'Telefoon', it:'Telefono', pt:'Telefone' },
+        pf_phone_ph:  { tr:'Telefon numaranız', en:'Your phone number', de:'Ihre Telefonnummer', fr:'Votre numéro', es:'Su número', ar:'رقم هاتفك', ru:'Ваш номер', nl:'Uw telefoonnummer', it:'Il tuo numero', pt:'Seu número' },
+        pf_email:     { tr:'E-posta', en:'Email', de:'E-Mail', fr:'E-mail', es:'Correo electrónico', ar:'البريد الإلكتروني', ru:'Эл. почта', nl:'E-mail', it:'E-mail', pt:'E-mail' },
+        pf_email_ph:  { tr:'E-posta adresiniz', en:'Your email address', de:'Ihre E-Mail-Adresse', fr:'Votre adresse e-mail', es:'Su correo electrónico', ar:'بريدك الإلكتروني', ru:'Ваш email', nl:'Uw e-mailadres', it:'Il tuo indirizzo email', pt:'Seu endereço de e-mail' },
+        pf_start:     { tr:'Sohbeti Başlat →', en:'Start Chat →', de:'Chat starten →', fr:'Démarrer →', es:'Iniciar chat →', ar:'ابدأ المحادثة ←', ru:'Начать чат →', nl:'Chat starten →', it:'Inizia chat →', pt:'Iniciar chat →' },
+        pf_err_name:  { tr:'Ad Soyad zorunludur.', en:'Full name is required.', de:'Name ist erforderlich.', fr:'Le nom est requis.', es:'El nombre es obligatorio.', ar:'الاسم مطلوب.', ru:'Имя обязательно.', nl:'Naam is verplicht.', it:'Il nome è obbligatorio.', pt:'O nome é obrigatório.' },
+        pf_err_phone: { tr:'Telefon numarası zorunludur.', en:'Phone number is required.', de:'Telefonnummer ist erforderlich.', fr:'Le numéro de téléphone est requis.', es:'El teléfono es obligatorio.', ar:'رقم الهاتف مطلوب.', ru:'Номер телефона обязателен.', nl:'Telefoonnummer is verplicht.', it:'Il numero di telefono è obbligatorio.', pt:'O número de telefone é obrigatório.' },
+        pf_err_email: { tr:'Geçerli bir e-posta adresi girin.', en:'Enter a valid email address.', de:'Geben Sie eine gültige E-Mail-Adresse ein.', fr:'Entrez une adresse e-mail valide.', es:'Ingrese un correo válido.', ar:'أدخل بريدًا إلكترونيًا صالحًا.', ru:'Введите корректный email.', nl:'Voer een geldig e-mailadres in.', it:'Inserisci un indirizzo email valido.', pt:'Digite um e-mail válido.' },
       };
       var lang = this.config.language || 'tr';
       return (translations[key] && (translations[key][lang] || translations[key]['tr'])) || key;
@@ -323,6 +376,12 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           self._applyServerConfig(data.config);
+          var info = self._getVisitorInfo();
+          if (!info) {
+            self._showPreChatForm();
+            return;
+          }
+          self._visitorInfo = info;
           var msgs = data.messages || [];
           if (msgs.length === 0) {
             self._addMessage('bot', self.config.welcomeMessage);
@@ -335,6 +394,8 @@
           }
         })
         .catch(function () {
+          var info = self._getVisitorInfo();
+          if (!info) { self._showPreChatForm(); return; }
           self._addMessage('bot', self.config.welcomeMessage);
         });
     },
@@ -396,8 +457,14 @@
       btn.classList.toggle('mp-active', this.isOpen);
       btn.setAttribute('aria-label', this.isOpen ? this._t('close_chat') : this._t('open_chat'));
       if (this.isOpen) {
-        var input = document.getElementById('mp-input');
-        if (input) setTimeout(function () { input.focus(); }, 150);
+        var prechat = document.getElementById('mp-prechat');
+        var isPrechat = prechat && prechat.classList.contains('mp-pf-show');
+        if (isPrechat) {
+          setTimeout(function () { var f = document.getElementById('mp-f-name'); if (f) f.focus(); }, 150);
+        } else {
+          var input = document.getElementById('mp-input');
+          if (input) setTimeout(function () { input.focus(); }, 150);
+        }
         var badge = document.getElementById('mp-badge');
         if (badge) badge.style.display = 'none';
       }
@@ -429,6 +496,9 @@
         body: JSON.stringify({
           message: message,
           sessionId: self.sessionId,
+          visitorName: self._visitorInfo ? self._visitorInfo.name : undefined,
+          visitorEmail: self._visitorInfo ? self._visitorInfo.email : undefined,
+          visitorPhone: self._visitorInfo ? self._visitorInfo.phone : undefined,
         }),
       })
         .then(function (r) { return r.json(); })
@@ -477,6 +547,103 @@
     _hideTyping: function () {
       var el = document.getElementById('mp-typing-indicator');
       if (el) el.remove();
+    },
+
+    _visitorInfoKey: function () {
+      return 'mp_visitor_' + btoa(window.location.hostname).replace(/=/g, '');
+    },
+
+    _getVisitorInfo: function () {
+      try {
+        var raw = localStorage.getItem(this._visitorInfoKey());
+        if (raw) return JSON.parse(raw);
+      } catch (e) {}
+      return null;
+    },
+
+    _saveVisitorInfo: function (info) {
+      try { localStorage.setItem(this._visitorInfoKey(), JSON.stringify(info)); } catch (e) {}
+      this._visitorInfo = info;
+    },
+
+    _countryOptions: function () {
+      var codes = [
+        ['+90','🇹🇷 +90'],['+1','🇺🇸 +1'],['+44','🇬🇧 +44'],['+49','🇩🇪 +49'],
+        ['+33','🇫🇷 +33'],['+39','🇮🇹 +39'],['+34','🇪🇸 +34'],['+31','🇳🇱 +31'],
+        ['+32','🇧🇪 +32'],['+41','🇨🇭 +41'],['+43','🇦🇹 +43'],['+351','🇵🇹 +351'],
+        ['+48','🇵🇱 +48'],['+46','🇸🇪 +46'],['+47','🇳🇴 +47'],['+45','🇩🇰 +45'],
+        ['+358','🇫🇮 +358'],['+7','🇷🇺 +7'],['+380','🇺🇦 +380'],['+36','🇭🇺 +36'],
+        ['+40','🇷🇴 +40'],['+30','🇬🇷 +30'],['+420','🇨🇿 +420'],
+        ['+971','🇦🇪 +971'],['+966','🇸🇦 +966'],['+965','🇰🇼 +965'],
+        ['+974','🇶🇦 +974'],['+968','🇴🇲 +968'],['+973','🇧🇭 +973'],
+        ['+20','🇪🇬 +20'],['+212','🇲🇦 +212'],['+213','🇩🇿 +213'],
+        ['+964','🇮🇶 +964'],['+962','🇯🇴 +962'],['+961','🇱🇧 +961'],['+98','🇮🇷 +98'],
+        ['+86','🇨🇳 +86'],['+81','🇯🇵 +81'],['+82','🇰🇷 +82'],
+        ['+91','🇮🇳 +91'],['+65','🇸🇬 +65'],['+60','🇲🇾 +60'],
+        ['+55','🇧🇷 +55'],['+52','🇲🇽 +52'],['+54','🇦🇷 +54'],
+        ['+61','🇦🇺 +61'],['+64','🇳🇿 +64'],['+27','🇿🇦 +27'],
+      ];
+      return codes.map(function (c) {
+        return '<option value="' + c[0] + '">' + c[1] + '</option>';
+      }).join('');
+    },
+
+    _showPreChatForm: function () {
+      var prechat = document.getElementById('mp-prechat');
+      var messages = document.getElementById('mp-messages');
+      var inputArea = document.getElementById('mp-input-area');
+      if (prechat) prechat.classList.add('mp-pf-show');
+      if (messages) messages.classList.add('mp-pf-hidden');
+      if (inputArea) inputArea.classList.add('mp-pf-hidden');
+
+      var self = this;
+      var btn = document.getElementById('mp-pf-submit');
+      if (btn) { btn.onclick = function () { self._submitPreChatForm(); }; }
+      ['mp-f-name', 'mp-f-phone', 'mp-f-email'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); self._submitPreChatForm(); }
+          });
+        }
+      });
+    },
+
+    _hidePreChatForm: function () {
+      var prechat = document.getElementById('mp-prechat');
+      var messages = document.getElementById('mp-messages');
+      var inputArea = document.getElementById('mp-input-area');
+      if (prechat) prechat.classList.remove('mp-pf-show');
+      if (messages) messages.classList.remove('mp-pf-hidden');
+      if (inputArea) inputArea.classList.remove('mp-pf-hidden');
+    },
+
+    _submitPreChatForm: function () {
+      var name = (document.getElementById('mp-f-name').value || '').trim();
+      var country = document.getElementById('mp-f-country').value;
+      var phone = (document.getElementById('mp-f-phone').value || '').trim();
+      var email = (document.getElementById('mp-f-email').value || '').trim();
+      var errorEl = document.getElementById('mp-pf-error');
+
+      if (!name) { errorEl.textContent = this._t('pf_err_name'); return; }
+      if (!phone) { errorEl.textContent = this._t('pf_err_phone'); return; }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorEl.textContent = this._t('pf_err_email'); return; }
+      errorEl.textContent = '';
+
+      var info = { name: name, phone: country + phone, email: email };
+      this._saveVisitorInfo(info);
+      this._hidePreChatForm();
+
+      var self = this;
+      fetch(self.config.panelUrl + '/api/visitor-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': self.config.apiKey },
+        body: JSON.stringify({ sessionId: self.sessionId, visitorName: info.name, visitorEmail: info.email, visitorPhone: info.phone }),
+      }).catch(function () {});
+
+      self._addMessage('bot', self.config.welcomeMessage);
+      var input = document.getElementById('mp-input');
+      if (input) setTimeout(function () { input.focus(); }, 100);
     },
 
     _esc: function (str) {

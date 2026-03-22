@@ -15,6 +15,7 @@ interface ConvDetail {
   bot_name: string;
   visitor_name: string | null;
   visitor_email: string | null;
+  visitor_phone: string | null;
   status: string;
   mode: string;
   created_at: string;
@@ -147,7 +148,8 @@ export default function ConversationDetailPage() {
             {conv.visitor_name || 'Anonim'} ile Konuşma
           </h2>
           <div className="flex gap-3 mt-1 text-sm text-slate-500 flex-wrap items-center">
-            {conv.visitor_email && <span>{conv.visitor_email}</span>}
+            {conv.visitor_phone && <span>📞 {conv.visitor_phone}</span>}
+            {conv.visitor_email && <span>✉️ {conv.visitor_email}</span>}
             <span>Site: {conv.site_name}</span>
             <span>{new Date(conv.created_at).toLocaleString('tr-TR')}</span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${

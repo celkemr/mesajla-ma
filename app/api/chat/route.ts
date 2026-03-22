@@ -30,15 +30,15 @@ export async function POST(req: NextRequest) {
   const site = await getSiteByApiKey(apiKey);
   if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401, headers: corsHeaders });
 
-  const { message, sessionId, visitorName, visitorEmail } = await req.json();
+  const { message, sessionId, visitorName, visitorEmail, visitorPhone } = await req.json();
   if (!message || !sessionId) {
     return NextResponse.json({ error: 'message ve sessionId gerekli' }, { status: 400, headers: corsHeaders });
   }
 
   const conversation = await getOrCreateConversation(site.id, sessionId);
 
-  if (visitorName || visitorEmail) {
-    await updateConversationVisitor(conversation.id, { visitor_name: visitorName, visitor_email: visitorEmail });
+  if (visitorName || visitorEmail || visitorPhone) {
+    await updateConversationVisitor(conversation.id, { visitor_name: visitorName, visitor_email: visitorEmail, visitor_phone: visitorPhone });
   }
 
   await addChatMessage(conversation.id, 'user', message);

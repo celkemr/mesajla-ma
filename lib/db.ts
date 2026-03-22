@@ -71,6 +71,7 @@ async function ensureInit(): Promise<void> {
       session_id TEXT NOT NULL,
       visitor_name TEXT,
       visitor_email TEXT,
+      visitor_phone TEXT,
       status TEXT NOT NULL DEFAULT 'active',
       mode TEXT NOT NULL DEFAULT 'ai',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -91,6 +92,7 @@ async function ensureInit(): Promise<void> {
   // Mevcut tablolara widget kolonlarını ekle (migration)
   const migrations = [
     "ALTER TABLE conversations ADD COLUMN mode TEXT NOT NULL DEFAULT 'ai'",
+    "ALTER TABLE conversations ADD COLUMN visitor_phone TEXT",
     "ALTER TABLE sites ADD COLUMN widget_position TEXT NOT NULL DEFAULT 'bottom-right'",
     "ALTER TABLE sites ADD COLUMN widget_color TEXT NOT NULL DEFAULT '#2563eb'",
     "ALTER TABLE sites ADD COLUMN widget_welcome_message TEXT NOT NULL DEFAULT 'Merhaba! Size nasıl yardımcı olabilirim?'",
@@ -165,6 +167,7 @@ export interface Conversation {
   session_id: string;
   visitor_name: string | null;
   visitor_email: string | null;
+  visitor_phone: string | null;
   status: string;
   mode: string;
   created_at: string;
@@ -330,9 +333,10 @@ export async function getOrCreateConversation(siteId: string, sessionId: string)
   return conv!;
 }
 
-export async function updateConversationVisitor(id: string, data: { visitor_name?: string; visitor_email?: string }) {
+export async function updateConversationVisitor(id: string, data: { visitor_name?: string; visitor_email?: string; visitor_phone?: string }) {
   if (data.visitor_name) await run('UPDATE conversations SET visitor_name = ? WHERE id = ?', [data.visitor_name, id]);
   if (data.visitor_email) await run('UPDATE conversations SET visitor_email = ? WHERE id = ?', [data.visitor_email, id]);
+  if (data.visitor_phone) await run('UPDATE conversations SET visitor_phone = ? WHERE id = ?', [data.visitor_phone, id]);
 }
 
 export async function addChatMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
