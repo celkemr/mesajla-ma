@@ -145,6 +145,32 @@
       this._loadHistory();
     },
 
+    _applyServerConfig: function (serverConfig) {
+      if (!serverConfig) return;
+      var color = serverConfig.buttonColor || this.config.buttonColor;
+      if (serverConfig.buttonColor) this.config.buttonColor = serverConfig.buttonColor;
+      if (serverConfig.botName) this.config.botName = serverConfig.botName;
+      if (serverConfig.welcomeMessage) this.config.welcomeMessage = serverConfig.welcomeMessage;
+      if (typeof serverConfig.typingIndicator !== 'undefined') this.config.typingIndicator = serverConfig.typingIndicator;
+      if (typeof serverConfig.onlineIndicator !== 'undefined') this.config.onlineIndicator = serverConfig.onlineIndicator;
+
+      // Rengi güncelle
+      var btn = document.getElementById('mp-btn');
+      var header = document.getElementById('mp-header');
+      var send = document.getElementById('mp-send');
+      if (btn) btn.style.background = color;
+      if (header) header.style.background = color;
+      if (send) send.style.background = color;
+
+      // Bot adını güncelle
+      var nameEl = document.querySelector('#mp-header .mp-name');
+      if (nameEl && serverConfig.botName) nameEl.textContent = serverConfig.botName;
+
+      // Online indicator
+      var statusEl = document.querySelector('#mp-header .mp-status');
+      if (statusEl) statusEl.style.display = this.config.onlineIndicator ? '' : 'none';
+    },
+
     _loadHistory: function () {
       var self = this;
       fetch(self.config.panelUrl + '/api/chat?sessionId=' + encodeURIComponent(self.sessionId), {
@@ -152,6 +178,7 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
+          self._applyServerConfig(data.config);
           var msgs = data.messages || [];
           if (msgs.length === 0) {
             self._addMessage('bot', self.config.welcomeMessage);

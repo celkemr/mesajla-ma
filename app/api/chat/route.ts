@@ -88,7 +88,17 @@ export async function GET(req: NextRequest) {
   const conversation = await getOrCreateConversation(site.id, sessionId);
   const messages = await getConversationMessages(conversation.id);
 
-  return NextResponse.json({ messages }, { headers: corsHeaders });
+  return NextResponse.json({
+    messages,
+    config: {
+      botName: site.bot_name,
+      buttonColor: site.widget_color,
+      welcomeMessage: site.widget_welcome_message,
+      typingIndicator: site.widget_typing_indicator,
+      onlineIndicator: site.widget_online_indicator,
+      widgetPosition: site.widget_position,
+    },
+  }, { headers: corsHeaders });
 }
 
 export async function OPTIONS(req: NextRequest) {
