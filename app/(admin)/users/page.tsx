@@ -53,23 +53,25 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="p-8">
+    <div>
       {dialog}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Kullanıcılar</h2>
-        <p className="text-slate-500 mt-1">Panel erişimi olan kullanıcıları yönetin</p>
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200/80 px-8 py-5">
+        <h1 className="text-[17px] font-semibold text-slate-900">Kullanıcılar</h1>
+        <p className="text-sm text-slate-400 mt-0.5">Panel erişimi olan kullanıcıları yönetin</p>
       </div>
 
+      <div className="p-6 space-y-4">
       {/* Add User */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
-        <h3 className="font-semibold text-slate-800 mb-4">Yeni Kullanıcı Ekle</h3>
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
+        <p className="text-sm font-semibold text-slate-700 mb-4">Yeni Kullanıcı Ekle</p>
         <div className="flex gap-3 flex-wrap">
           <input
             type="text"
             placeholder="Kullanıcı adı"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-36 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm flex-1 min-w-36 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
           <input
             type="password"
@@ -77,12 +79,13 @@ export default function UsersPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && addUser()}
-            className="border border-slate-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="border border-slate-200 rounded-xl px-3 py-2.5 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           />
           <button
             onClick={addUser}
             disabled={adding || !username.trim() || !password.trim()}
-            className="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="text-white px-5 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
+            style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}
           >
             {adding ? 'Ekleniyor...' : '+ Kullanıcı Ekle'}
           </button>
@@ -91,29 +94,36 @@ export default function UsersPage() {
       </div>
 
       {/* Users List */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {users.length === 0 ? (
-          <div className="p-12 text-center text-slate-400">Kullanıcı bulunamadı.</div>
+          <div className="p-12 text-center text-slate-400 text-sm">Kullanıcı bulunamadı.</div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Kullanıcı Adı</th>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Oluşturulma Tarihi</th>
-                <th className="px-6 py-3"></th>
+            <thead>
+              <tr style={{ background: 'linear-gradient(90deg,#f8f9ff,#f3f4f8)' }}>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Kullanıcı Adı</th>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Oluşturulma Tarihi</th>
+                <th className="px-6 py-3.5" />
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-slate-50">
               {users.map((user) => (
-                <tr key={user.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                  <td className="px-6 py-4 font-medium text-slate-800">{user.username}</td>
-                  <td className="px-6 py-4 text-slate-500">
+                <tr key={user.id} className="hover:bg-indigo-50/30 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                        {user.username[0].toUpperCase()}
+                      </div>
+                      <span className="font-medium text-slate-800">{user.username}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-slate-400">
                     {new Date(user.created_at).toLocaleString('tr-TR')}
                   </td>
                   <td className="px-6 py-4 text-right">
                     <button
                       onClick={() => deleteUser(user.id, user.username)}
-                      className="text-xs border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                      className="text-xs font-medium border border-red-200 text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
                     >
                       Sil
                     </button>
@@ -123,6 +133,7 @@ export default function UsersPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );

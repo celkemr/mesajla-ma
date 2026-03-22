@@ -197,15 +197,17 @@ export default function SitesPage() {
     }`;
 
   return (
-    <div className="p-8">
+    <div>
       {dialog}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Siteler</h2>
-        <p className="text-slate-500 mt-1">Her site için ayrı bir AI chatbot yapılandırın</p>
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200/80 px-8 py-5">
+        <h1 className="text-[17px] font-semibold text-slate-900">Siteler</h1>
+        <p className="text-sm text-slate-400 mt-0.5">Her site için ayrı bir AI chatbot yapılandırın</p>
       </div>
 
+      <div className="p-6 space-y-4">
       {/* Add Site */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100 mb-6">
+      <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
         <h3 className="font-semibold text-slate-800 mb-4">Yeni Site Ekle</h3>
         <div className="grid grid-cols-1 gap-3">
           <div className="flex gap-3 flex-wrap">
@@ -608,6 +610,7 @@ export default function SitesPage() {
             </div>
           ))
         )}
+      </div>
       </div>
     </div>
   );

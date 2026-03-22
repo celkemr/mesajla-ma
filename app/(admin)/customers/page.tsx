@@ -85,43 +85,45 @@ export default function CustomersPage() {
   }, {} as Record<string, number>);
 
   return (
-    <div className="p-8">
+    <div>
       {dialog}
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold text-slate-800">Müşteriler</h2>
-        <p className="text-slate-500 mt-1">Widget üzerinden oluşan lead'ler</p>
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200/80 px-8 py-5">
+        <h1 className="text-[17px] font-semibold text-slate-900">Müşteriler</h1>
+        <p className="text-sm text-slate-400 mt-0.5">Widget üzerinden oluşan lead&apos;ler</p>
       </div>
 
+      <div className="p-6 space-y-4">
       {/* Status summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {Object.entries(STATUS).map(([k, v]) => (
           <button
             key={k}
             onClick={() => setStatusFilter(statusFilter === k ? '' : k)}
-            className={`rounded-xl p-3 border text-left transition-all ${statusFilter === k ? 'border-blue-400 ring-2 ring-blue-200' : 'border-slate-100 hover:border-slate-200'} bg-white shadow-sm`}
+            className={`rounded-2xl p-4 border text-left transition-all ${statusFilter === k ? 'border-indigo-400 ring-2 ring-indigo-100 shadow-sm' : 'border-slate-200/80 hover:border-slate-300'} bg-white shadow-sm`}
           >
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-2">
               <span className={`w-2 h-2 rounded-full ${v.dot}`} />
-              <span className="text-xs text-slate-500">{v.label}</span>
+              <span className="text-xs text-slate-400 font-medium">{v.label}</span>
             </div>
-            <div className="text-2xl font-bold text-slate-800">{counts[k] || 0}</div>
+            <div className="text-2xl font-bold text-slate-900">{counts[k] || 0}</div>
           </button>
         ))}
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl p-4 shadow-sm border border-slate-100 mb-6 flex flex-wrap gap-3">
+      <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-wrap gap-3">
         <input
           type="text"
           placeholder="İsim, e-posta veya telefon ara..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm flex-1 min-w-48 focus:outline-none focus:ring-2 focus:ring-indigo-400"
         />
         <select
           value={siteFilter}
           onChange={e => setSiteFilter(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-slate-600"
         >
           <option value="">Tüm Siteler</option>
           {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -129,7 +131,7 @@ export default function CustomersPage() {
         <select
           value={statusFilter}
           onChange={e => setStatusFilter(e.target.value)}
-          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 text-slate-600"
         >
           <option value="">Tüm Durumlar</option>
           {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
@@ -137,22 +139,24 @@ export default function CustomersPage() {
       </div>
 
       {/* Leads table */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
         {filtered.length === 0 ? (
-          <div className="p-12 text-center text-slate-400">
-            <p className="text-4xl mb-3">👤</p>
-            <p>Henüz müşteri yok.</p>
-            <p className="text-sm mt-2">Widget&apos;ınızdaki ön sohbet formunu dolduran ziyaretçiler burada görünür.</p>
+          <div className="p-16 text-center">
+            <div className="w-14 h-14 rounded-2xl mx-auto mb-4 flex items-center justify-center" style={{ background: 'rgba(99,102,241,0.08)' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#6366f1" className="w-7 h-7"><path d="M4.5 6.375a4.125 4.125 0 1 1 8.25 0 4.125 4.125 0 0 1-8.25 0ZM14.25 8.625a3.375 3.375 0 1 1 6.75 0 3.375 3.375 0 0 1-6.75 0ZM1.5 19.125a7.125 7.125 0 0 1 14.25 0v.003l-.001.119a.75.75 0 0 1-.363.63 13.067 13.067 0 0 1-6.761 1.873c-2.472 0-4.786-.684-6.76-1.873a.75.75 0 0 1-.364-.63l-.001-.122ZM17.25 19.128l-.001.144a2.25 2.25 0 0 1-.233.96 10.088 10.088 0 0 0 5.06-1.01.75.75 0 0 0 .42-.643 4.875 4.875 0 0 0-6.957-4.611 8.586 8.586 0 0 1 1.71 5.157v.003Z" /></svg>
+            </div>
+            <p className="text-slate-600 font-medium text-sm">Henüz müşteri yok</p>
+            <p className="text-slate-400 text-xs mt-1">Widget&apos;ınızdaki ön sohbet formunu dolduran ziyaretçiler burada görünür.</p>
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-100">
-              <tr>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Müşteri</th>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Site</th>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Durum</th>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Notlar</th>
-                <th className="text-left px-6 py-3 font-semibold text-slate-600">Tarih</th>
+            <thead>
+              <tr style={{ background: 'linear-gradient(90deg,#f8f9ff,#f3f4f8)' }}>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Müşteri</th>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Site</th>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Durum</th>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Notlar</th>
+                <th className="text-left px-6 py-3.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Tarih</th>
                 <th className="px-6 py-3"></th>
               </tr>
             </thead>
@@ -161,7 +165,7 @@ export default function CustomersPage() {
                 const st = STATUS[lead.status] || STATUS.new;
                 const initials = (lead.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
                 return (
-                  <tr key={lead.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                  <tr key={lead.id} className="border-b border-slate-50 last:border-0 hover:bg-indigo-50/30 transition-colors">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -238,6 +242,7 @@ export default function CustomersPage() {
             </tbody>
           </table>
         )}
+      </div>
       </div>
     </div>
   );
