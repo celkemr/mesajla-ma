@@ -6,7 +6,16 @@ import {
   addChatMessage,
   getConversationMessages,
   updateConversationVisitor,
+  getConversationMessageCount,
+  updateConversationSummary,
 } from '@/lib/db';
+import {
+  sendTelegramMessage,
+  sendWebhook,
+  createHubSpotContact,
+  createPipedriveContact,
+  generateConversationSummary,
+} from '@/lib/integrations';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,9 +39,9 @@ export async function POST(req: NextRequest) {
   const site = await getSiteByApiKey(apiKey);
   if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401, headers: corsHeaders });
 
-  const { message, sessionId, visitorName, visitorEmail, visitorPhone } = await req.json();
-  if (!message || !sessionId) {
-    return NextResponse.json({ error: 'message ve sessionId gerekli' }, { status: 400, headers: corsHeaders });
+  const { message, sessionId, visitorName, visitorEmail, visitorPhone, fileData, fileName } = await req.json();
+  if ((!message && !fileData) || !sessionId) {
+    return NextResponse.json({ error: 'message/fileData ve sessionId gerekli' }, { status: 400, headers: corsHeaders });
   }
 
   const conversation = await getOrCreateConversation(site.id, sessionId);
@@ -41,7 +50,63 @@ export async function POST(req: NextRequest) {
     await updateConversationVisitor(conversation.id, { visitor_name: visitorName, visitor_email: visitorEmail, visitor_phone: visitorPhone });
   }
 
-  await addChatMessage(conversation.id, 'user', message);
+  // Dosya içeriği varsa ayrı mesaj olarak ekle
+  const userContent = fileData
+    ? (message ? message + `\n[Dosya: ${fileName || 'dosya'}]` : `[Dosya: ${fileName || 'dosya'}]`)
+    : message;
+  await addChatMessage(conversation.id, 'user', userContent, fileData || null);
+
+  // Kaç mesaj var?
+  const msgCount = await getConversationMessageCount(conversation.id);
+
+  // İlk mesaj ise: Telegram + CRM tetikle (fire & forget)
+  if (msgCount === 1) {
+    const visitorInfo = {
+      name: visitorName || conversation.visitor_name,
+      email: visitorEmail || conversation.visitor_email,
+      phone: visitorPhone || conversation.visitor_phone,
+    };
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+    const convLink = appUrl ? `\n🔗 <a href="${appUrl}/conversations/${conversation.id}">Konuşmaya git</a>` : '';
+
+    if (site.telegram_bot_token && site.telegram_chat_id) {
+      sendTelegramMessage(
+        site.telegram_bot_token,
+        site.telegram_chat_id,
+        `🔔 <b>Yeni Konuşma!</b>\n` +
+        `📌 Site: ${site.name}\n` +
+        `👤 Ziyaretçi: ${visitorInfo.name || 'Anonim'}\n` +
+        (visitorInfo.phone ? `📞 ${visitorInfo.phone}\n` : '') +
+        (visitorInfo.email ? `✉️ ${visitorInfo.email}\n` : '') +
+        `💬 Mesaj: ${userContent.slice(0, 200)}` +
+        convLink,
+      ).catch(console.error);
+    }
+
+    // CRM - sadece email ya da telefon varsa lead oluştur
+    if (visitorInfo.email || visitorInfo.phone || visitorInfo.name) {
+      if (site.hubspot_api_key) {
+        createHubSpotContact(site.hubspot_api_key, visitorInfo).catch(console.error);
+      }
+      if (site.pipedrive_api_key && site.pipedrive_domain) {
+        createPipedriveContact(site.pipedrive_api_key, site.pipedrive_domain, visitorInfo).catch(console.error);
+      }
+    }
+  }
+
+  // Webhook: her kullanıcı mesajında tetikle
+  if (site.webhook_url) {
+    sendWebhook(site.webhook_url, {
+      event: 'message',
+      role: 'user',
+      content: userContent,
+      conversationId: conversation.id,
+      siteId: site.id,
+      siteName: site.name,
+      visitorName: visitorName || conversation.visitor_name,
+      timestamp: new Date().toISOString(),
+    }).catch(console.error);
+  }
 
   if (conversation.mode === 'human') {
     return NextResponse.json({ reply: null, humanMode: true, conversationId: conversation.id }, { headers: corsHeaders });
@@ -84,6 +149,28 @@ export async function POST(req: NextRequest) {
 
   const reply = completion.choices[0]?.message?.content || 'Bir hata oluştu.';
   await addChatMessage(conversation.id, 'assistant', reply);
+
+  // Webhook: asistan yanıtında
+  if (site.webhook_url) {
+    sendWebhook(site.webhook_url, {
+      event: 'message',
+      role: 'assistant',
+      content: reply,
+      conversationId: conversation.id,
+      siteId: site.id,
+      siteName: site.name,
+      timestamp: new Date().toISOString(),
+    }).catch(console.error);
+  }
+
+  // Her 6 mesajda bir AI özet üret (fire & forget)
+  const newCount = msgCount + 1; // user + assistant
+  if (process.env.OPENAI_API_KEY && newCount >= 6 && newCount % 6 === 0) {
+    const allMessages = await getConversationMessages(conversation.id);
+    generateConversationSummary(process.env.OPENAI_API_KEY, allMessages)
+      .then(summary => { if (summary) updateConversationSummary(conversation.id, summary); })
+      .catch(console.error);
+  }
 
   return NextResponse.json({ reply, conversationId: conversation.id }, { headers: corsHeaders });
 }

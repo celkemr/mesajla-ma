@@ -6,6 +6,7 @@ interface ChatMsg {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  file_url: string | null;
   created_at: string;
 }
 
@@ -209,7 +210,17 @@ export default function ConversationDetailPage() {
               <div className="text-xs opacity-60 mb-1 font-medium">
                 {msg.role === 'user' ? (conv.visitor_name || 'Ziyaretçi') : conv.bot_name}
               </div>
-              <div className="whitespace-pre-wrap">{msg.content}</div>
+              {msg.file_url && msg.file_url.startsWith('data:image/') && (
+                <img src={msg.file_url} alt="dosya" className="max-w-[220px] max-h-[180px] rounded-xl mb-2 block" />
+              )}
+              {msg.file_url && !msg.file_url.startsWith('data:image/') && (
+                <a href={msg.file_url} download className="flex items-center gap-1.5 text-xs underline opacity-80 mb-1">
+                  📎 {msg.content.replace('[Dosya: ', '').replace(']', '')}
+                </a>
+              )}
+              {(!msg.file_url || !msg.content.startsWith('[Dosya:')) && (
+                <div className="whitespace-pre-wrap">{msg.content}</div>
+              )}
               <div className="text-xs mt-1 opacity-50 text-right">
                 {new Date(msg.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
               </div>

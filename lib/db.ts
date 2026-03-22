@@ -125,6 +125,14 @@ async function ensureInit(): Promise<void> {
     "ALTER TABLE sites ADD COLUMN widget_typing_indicator INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE sites ADD COLUMN widget_online_indicator INTEGER NOT NULL DEFAULT 1",
     "ALTER TABLE sites ADD COLUMN widget_language TEXT NOT NULL DEFAULT 'tr'",
+    "ALTER TABLE sites ADD COLUMN telegram_bot_token TEXT",
+    "ALTER TABLE sites ADD COLUMN telegram_chat_id TEXT",
+    "ALTER TABLE sites ADD COLUMN webhook_url TEXT",
+    "ALTER TABLE sites ADD COLUMN hubspot_api_key TEXT",
+    "ALTER TABLE sites ADD COLUMN pipedrive_api_key TEXT",
+    "ALTER TABLE sites ADD COLUMN pipedrive_domain TEXT",
+    "ALTER TABLE conversations ADD COLUMN summary TEXT",
+    "ALTER TABLE chat_messages ADD COLUMN file_url TEXT",
   ];
   for (const sql of migrations) {
     try { await c.execute(sql); } catch { /* kolon zaten varsa yok say */ }
@@ -176,6 +184,12 @@ export interface Site {
   widget_typing_indicator: number;
   widget_online_indicator: number;
   widget_language: string;
+  telegram_bot_token: string | null;
+  telegram_chat_id: string | null;
+  webhook_url: string | null;
+  hubspot_api_key: string | null;
+  pipedrive_api_key: string | null;
+  pipedrive_domain: string | null;
   created_at: string;
 }
 
@@ -184,6 +198,7 @@ export interface ChatMessage {
   conversation_id: string;
   role: 'user' | 'assistant';
   content: string;
+  file_url: string | null;
   created_at: string;
 }
 
@@ -196,6 +211,7 @@ export interface Conversation {
   visitor_phone: string | null;
   status: string;
   mode: string;
+  summary: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -249,6 +265,12 @@ export async function updateSite(id: string, data: {
   widget_typing_indicator?: number;
   widget_online_indicator?: number;
   widget_language?: string;
+  telegram_bot_token?: string | null;
+  telegram_chat_id?: string | null;
+  webhook_url?: string | null;
+  hubspot_api_key?: string | null;
+  pipedrive_api_key?: string | null;
+  pipedrive_domain?: string | null;
 }) {
   const entries = Object.entries(data).filter(([, v]) => v !== undefined);
   if (entries.length === 0) return getSiteById(id);
@@ -365,11 +387,24 @@ export async function updateConversationVisitor(id: string, data: { visitor_name
   if (data.visitor_phone) await run('UPDATE conversations SET visitor_phone = ? WHERE id = ?', [data.visitor_phone, id]);
 }
 
-export async function addChatMessage(conversationId: string, role: 'user' | 'assistant', content: string) {
+export async function addChatMessage(conversationId: string, role: 'user' | 'assistant', content: string, fileUrl?: string | null) {
   const id = uuidv4();
-  await run('INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)', [id, conversationId, role, content]);
+  if (fileUrl) {
+    await run('INSERT INTO chat_messages (id, conversation_id, role, content, file_url) VALUES (?, ?, ?, ?, ?)', [id, conversationId, role, content, fileUrl]);
+  } else {
+    await run('INSERT INTO chat_messages (id, conversation_id, role, content) VALUES (?, ?, ?, ?)', [id, conversationId, role, content]);
+  }
   await run("UPDATE conversations SET updated_at = datetime('now'), status = 'active' WHERE id = ?", [conversationId]);
   return one('SELECT * FROM chat_messages WHERE id = ?', [id]);
+}
+
+export async function getConversationMessageCount(conversationId: string): Promise<number> {
+  const res = await one<{ c: number }>('SELECT COUNT(*) as c FROM chat_messages WHERE conversation_id = ?', [conversationId]);
+  return Number(res?.c ?? 0);
+}
+
+export async function updateConversationSummary(id: string, summary: string) {
+  await run('UPDATE conversations SET summary = ? WHERE id = ?', [summary, id]);
 }
 
 export async function getConversationMessages(conversationId: string): Promise<ChatMessage[]> {

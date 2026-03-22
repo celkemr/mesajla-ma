@@ -131,6 +131,12 @@
         '#mp-send:active{transform:scale(.94);}',
         '#mp-send:disabled{opacity:.35;cursor:default;transform:none;box-shadow:none;}',
         '#mp-send svg{width:18px;height:18px;fill:white;}',
+        '#mp-file-btn{width:34px;height:34px;border-radius:10px;border:1.5px solid #e2e8f0;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#64748b;font-size:17px;transition:border-color .2s,background .2s;margin-bottom:3px;}',
+        '#mp-file-btn:hover{border-color:#93c5fd;background:#f0f7ff;}',
+        '#mp-file-preview{display:none;align-items:center;gap:6px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:10px;padding:6px 10px;font-size:12px;color:#0369a1;width:100%;box-sizing:border-box;margin-bottom:4px;}',
+        '#mp-file-preview.mp-fp-show{display:flex;}',
+        '#mp-file-preview .mp-fp-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+        '#mp-file-preview .mp-fp-remove{cursor:pointer;font-size:15px;color:#64748b;flex-shrink:0;}',
         /* === TOOLTIP BUBBLE === */
         '#mp-bubble{position:fixed;background:white;border-radius:18px 18px 4px 18px;padding:10px 15px;font-size:13px;color:#1e293b;box-shadow:0 4px 20px rgba(0,0,0,.14);z-index:99997;white-space:nowrap;pointer-events:none;opacity:0;transform:translateY(6px) scale(.95);transition:opacity .3s ease,transform .3s ease;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-weight:500;}',
         '#mp-bubble.mp-bubble-show{opacity:1;transform:translateY(0) scale(1);}',
@@ -215,7 +221,10 @@
       '  <button id="mp-pf-submit" class="mp-pf-btn" style="background:' + color + '">' + this._t('pf_start') + '</button>',
       '</div>',
       '<div id="mp-messages"></div>',
-        '<div id="mp-input-area">',
+        '<div id="mp-input-area" style="flex-wrap:wrap;">',
+        '  <div id="mp-file-preview"><span class="mp-fp-name" id="mp-fp-name"></span><span class="mp-fp-remove" id="mp-fp-remove">✕</span></div>',
+        '  <input type="file" id="mp-file-input" accept="image/*,application/pdf,.doc,.docx,.txt" style="display:none">',
+        '  <button id="mp-file-btn" title="Dosya ekle">📎</button>',
         '  <textarea id="mp-input" rows="1" placeholder="' + this._esc(this.config.placeholder || this._t('placeholder')) + '" aria-label="' + this._t('write_message') + '"></textarea>',
         '  <button id="mp-send" style="background:' + color + '" aria-label="' + this._t('send') + '">',
         '    <svg viewBox="0 0 24 24"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.993.993 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.51c0 .71.73 1.2 1.39.91z"/></svg>',
@@ -260,6 +269,36 @@
         this.style.height = 'auto';
         this.style.height = Math.min(this.scrollHeight, 100) + 'px';
       });
+
+      // Dosya upload
+      self._pendingFile = null;
+      document.getElementById('mp-file-btn').onclick = function () {
+        document.getElementById('mp-file-input').click();
+      };
+      document.getElementById('mp-file-input').onchange = function (e) {
+        var file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 1024 * 1024) {
+          alert('Dosya boyutu 1MB\'dan küçük olmalıdır.');
+          e.target.value = '';
+          return;
+        }
+        var reader = new FileReader();
+        reader.onload = function (ev) {
+          self._pendingFile = { data: ev.target.result, name: file.name, type: file.type };
+          var preview = document.getElementById('mp-file-preview');
+          var nameEl = document.getElementById('mp-fp-name');
+          var icon = file.type.startsWith('image/') ? '🖼 ' : '📄 ';
+          nameEl.textContent = icon + file.name;
+          preview.classList.add('mp-fp-show');
+        };
+        reader.readAsDataURL(file);
+      };
+      document.getElementById('mp-fp-remove').onclick = function () {
+        self._pendingFile = null;
+        document.getElementById('mp-file-input').value = '';
+        document.getElementById('mp-file-preview').classList.remove('mp-fp-show');
+      };
 
       this._loadHistory();
       this._startPolling();
@@ -389,7 +428,7 @@
             self._knownMsgCount = 0;
           } else {
             msgs.forEach(function (m) {
-              self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at);
+              self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at, m.file_url);
             });
             self._knownMsgCount = msgs.length;
           }
@@ -431,7 +470,7 @@
               var newMsgs = msgs.slice(self._knownMsgCount);
               var hasAdminMsg = newMsgs.some(function (m) { return m.role === 'assistant'; });
               newMsgs.forEach(function (m) {
-                self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at);
+                self._addMessage(m.role === 'assistant' ? 'bot' : 'user', m.content, m.created_at, m.file_url);
               });
               self._knownMsgCount = msgs.length;
               if (hasAdminMsg) {
@@ -474,19 +513,45 @@
     sendMessage: function () {
       var input = document.getElementById('mp-input');
       var text = input.value.trim();
-      if (!text || this.isTyping) return;
+      var file = this._pendingFile;
+      if (!text && !file) return;
+      if (this.isTyping) return;
       input.value = '';
       input.style.height = 'auto';
-      this._addMessage('user', text);
+      // Dosya önizlemesini temizle
+      if (file) {
+        this._pendingFile = null;
+        document.getElementById('mp-file-input').value = '';
+        document.getElementById('mp-file-preview').classList.remove('mp-fp-show');
+        if (file.type && file.type.startsWith('image/')) {
+          this._addImageMessage('user', file.data, text);
+        } else {
+          this._addMessage('user', (text ? text + '\n' : '') + '📎 ' + file.name);
+        }
+      } else {
+        this._addMessage('user', text);
+      }
       this._knownMsgCount++;
-      this._sendToApi(text);
+      this._sendToApi(text, file);
     },
 
-    _sendToApi: function (message) {
+    _sendToApi: function (message, file) {
       var self = this;
       self.isTyping = true;
       document.getElementById('mp-send').disabled = true;
       if (self.config.typingIndicator) self._showTyping();
+
+      var payload = {
+        message: message || '',
+        sessionId: self.sessionId,
+        visitorName: self._visitorInfo ? self._visitorInfo.name : undefined,
+        visitorEmail: self._visitorInfo ? self._visitorInfo.email : undefined,
+        visitorPhone: self._visitorInfo ? self._visitorInfo.phone : undefined,
+      };
+      if (file) {
+        payload.fileData = file.data;
+        payload.fileName = file.name;
+      }
 
       fetch(self.config.panelUrl + '/api/chat', {
         method: 'POST',
@@ -494,13 +559,7 @@
           'Content-Type': 'application/json',
           'x-api-key': self.config.apiKey,
         },
-        body: JSON.stringify({
-          message: message,
-          sessionId: self.sessionId,
-          visitorName: self._visitorInfo ? self._visitorInfo.name : undefined,
-          visitorEmail: self._visitorInfo ? self._visitorInfo.email : undefined,
-          visitorPhone: self._visitorInfo ? self._visitorInfo.phone : undefined,
-        }),
+        body: JSON.stringify(payload),
       })
         .then(function (r) { return r.json(); })
         .then(function (data) {
@@ -523,14 +582,40 @@
         });
     },
 
-    _addMessage: function (role, content, createdAt) {
+    _addMessage: function (role, content, createdAt, fileUrl) {
       var messagesEl = document.getElementById('mp-messages');
       var div = document.createElement('div');
       div.className = 'mp-msg mp-' + role;
       if (role === 'user') div.style.background = this.config.buttonColor;
       var d = createdAt ? new Date(createdAt) : new Date();
       var time = d.getHours().toString().padStart(2, '0') + ':' + d.getMinutes().toString().padStart(2, '0');
-      div.innerHTML = this._esc(content).replace(/\n/g, '<br>') + '<div class="mp-time">' + time + '</div>';
+      var inner = '';
+      if (fileUrl && fileUrl.startsWith('data:image/')) {
+        inner += '<img src="' + fileUrl + '" style="max-width:200px;max-height:160px;border-radius:8px;display:block;margin-bottom:4px;">';
+      } else if (fileUrl) {
+        inner += '<div>📎 <a href="' + fileUrl + '" download style="color:inherit;text-decoration:underline;">' + this._esc(content.replace(/^\[Dosya: /, '').replace(/\]$/, '')) + '</a></div>';
+      }
+      if (content && !content.startsWith('[Dosya:')) {
+        inner += this._esc(content).replace(/\n/g, '<br>');
+      } else if (fileUrl && content.startsWith('[Dosya:') && !fileUrl.startsWith('data:image/')) {
+        // file name already shown above
+      } else if (!fileUrl && content.startsWith('[Dosya:')) {
+        inner += this._esc(content).replace(/\n/g, '<br>');
+      }
+      div.innerHTML = inner + '<div class="mp-time">' + time + '</div>';
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    },
+
+    _addImageMessage: function (role, src, caption) {
+      var messagesEl = document.getElementById('mp-messages');
+      var div = document.createElement('div');
+      div.className = 'mp-msg mp-' + role;
+      if (role === 'user') div.style.background = this.config.buttonColor;
+      var time = new Date().getHours().toString().padStart(2, '0') + ':' + new Date().getMinutes().toString().padStart(2, '0');
+      var inner = '<img src="' + src + '" style="max-width:200px;max-height:160px;border-radius:8px;display:block;margin-bottom:4px;">';
+      if (caption) inner += this._esc(caption).replace(/\n/g, '<br>');
+      div.innerHTML = inner + '<div class="mp-time">' + time + '</div>';
       messagesEl.appendChild(div);
       messagesEl.scrollTop = messagesEl.scrollHeight;
     },

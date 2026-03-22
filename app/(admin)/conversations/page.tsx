@@ -10,6 +10,7 @@ interface Conversation {
   visitor_email: string | null;
   visitor_phone: string | null;
   status: string;
+  summary: string | null;
   message_count: number;
   last_message_at: string | null;
   created_at: string;
@@ -89,7 +90,14 @@ export default function ConversationsPage() {
                     </Link>
                   </td>
                   <td className="px-6 py-4 text-slate-500">{c.site_name}</td>
-                  <td className="px-6 py-4 text-slate-500">{c.message_count} mesaj</td>
+                  <td className="px-6 py-4 text-slate-500">
+                    <div>{c.message_count} mesaj</div>
+                    {c.summary && (
+                      <div className="text-xs text-slate-400 mt-0.5 max-w-xs truncate" title={c.summary}>
+                        💡 {c.summary}
+                      </div>
+                    )}
+                  </td>
                   <td className="px-6 py-4">
                     <span className={`text-xs px-2 py-1 rounded-full font-medium ${
                       c.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'

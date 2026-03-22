@@ -14,6 +14,12 @@ interface Site {
   widget_typing_indicator: number;
   widget_online_indicator: number;
   widget_language: string;
+  telegram_bot_token: string | null;
+  telegram_chat_id: string | null;
+  webhook_url: string | null;
+  hubspot_api_key: string | null;
+  pipedrive_api_key: string | null;
+  pipedrive_domain: string | null;
   created_at: string;
   message_count: number;
   unread_count: number;
@@ -42,7 +48,14 @@ export default function SitesPage() {
   const [editTyping, setEditTyping] = useState(true);
   const [editOnline, setEditOnline] = useState(true);
   const [editLanguage, setEditLanguage] = useState('tr');
-  const [activeTab, setActiveTab] = useState<'bot' | 'widget'>('bot');
+  const [editTelegramToken, setEditTelegramToken] = useState('');
+  const [editTelegramChat, setEditTelegramChat] = useState('');
+  const [editWebhookUrl, setEditWebhookUrl] = useState('');
+  const [editHubspotKey, setEditHubspotKey] = useState('');
+  const [editPipedriveKey, setEditPipedriveKey] = useState('');
+  const [editPipedriveDomain, setEditPipedriveDomain] = useState('');
+  const [testingTelegram, setTestingTelegram] = useState(false);
+  const [activeTab, setActiveTab] = useState<'bot' | 'widget' | 'integrations'>('bot');
 
   useEffect(() => {
     setPanelUrl(window.location.origin);
@@ -85,6 +98,12 @@ export default function SitesPage() {
         widget_typing_indicator: editTyping ? 1 : 0,
         widget_online_indicator: editOnline ? 1 : 0,
         widget_language: editLanguage,
+        telegram_bot_token: editTelegramToken || null,
+        telegram_chat_id: editTelegramChat || null,
+        webhook_url: editWebhookUrl || null,
+        hubspot_api_key: editHubspotKey || null,
+        pipedrive_api_key: editPipedriveKey || null,
+        pipedrive_domain: editPipedriveDomain || null,
       }),
     });
     setEditingId(null);
@@ -101,6 +120,12 @@ export default function SitesPage() {
     setEditTyping(site.widget_typing_indicator !== 0);
     setEditOnline(site.widget_online_indicator !== 0);
     setEditLanguage(site.widget_language || 'tr');
+    setEditTelegramToken(site.telegram_bot_token || '');
+    setEditTelegramChat(site.telegram_chat_id || '');
+    setEditWebhookUrl(site.webhook_url || '');
+    setEditHubspotKey(site.hubspot_api_key || '');
+    setEditPipedriveKey(site.pipedrive_api_key || '');
+    setEditPipedriveDomain(site.pipedrive_domain || '');
     setActiveTab('bot');
   }
 
@@ -126,7 +151,21 @@ export default function SitesPage() {
 </script>`;
   }
 
-  const tabClass = (tab: 'bot' | 'widget') =>
+  async function testTelegram() {
+    if (!editTelegramToken || !editTelegramChat) return;
+    setTestingTelegram(true);
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${editTelegramToken}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: editTelegramChat, text: '✅ Mesajla.ma Telegram bağlantısı başarılı!' }),
+      });
+      alert(res.ok ? '✅ Test mesajı gönderildi!' : '❌ Gönderilemedi. Token ve Chat ID\'yi kontrol edin.');
+    } catch { alert('❌ Bağlantı hatası.'); }
+    setTestingTelegram(false);
+  }
+
+  const tabClass = (tab: 'bot' | 'widget' | 'integrations') =>
     `px-4 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
       activeTab === tab
         ? 'border-blue-600 text-blue-600 bg-white'
@@ -237,6 +276,7 @@ export default function SitesPage() {
                   <div className="flex gap-1 px-4 pt-3 bg-slate-50 border-b border-slate-100">
                     <button className={tabClass('bot')} onClick={() => setActiveTab('bot')}>Bot Ayarları</button>
                     <button className={tabClass('widget')} onClick={() => setActiveTab('widget')}>Widget Tasarımı</button>
+                    <button className={tabClass('integrations')} onClick={() => setActiveTab('integrations')}>Entegrasyonlar</button>
                   </div>
 
                   <div className="p-4 bg-white space-y-4">
@@ -387,6 +427,114 @@ export default function SitesPage() {
                           </div>
                         </div>
                       </>
+                    )}
+
+                    {activeTab === 'integrations' && (
+                      <div className="space-y-5">
+                        {/* Telegram */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xl">✈️</span>
+                            <div>
+                              <div className="text-sm font-semibold text-slate-800">Telegram Bildirimleri</div>
+                              <div className="text-xs text-slate-400">Yeni konuşmada Telegram&apos;a bildirim gönder</div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <input
+                              value={editTelegramToken}
+                              onChange={e => setEditTelegramToken(e.target.value)}
+                              placeholder="Bot Token (örn: 123456:ABCdef...)"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                              value={editTelegramChat}
+                              onChange={e => setEditTelegramChat(e.target.value)}
+                              placeholder="Chat ID (örn: -1001234567890)"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <button
+                              onClick={testTelegram}
+                              disabled={!editTelegramToken || !editTelegramChat || testingTelegram}
+                              className="text-xs border border-blue-200 text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors disabled:opacity-40"
+                            >
+                              {testingTelegram ? 'Gönderiliyor...' : '🔔 Test Mesajı Gönder'}
+                            </button>
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2">
+                            1. @BotFather ile bot oluşturun → token alın<br/>
+                            2. Botu kanala/gruba ekleyin → Chat ID alın (@userinfobot ile)
+                          </p>
+                        </div>
+
+                        {/* Webhook */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xl">🔗</span>
+                            <div>
+                              <div className="text-sm font-semibold text-slate-800">Webhook</div>
+                              <div className="text-xs text-slate-400">Her mesajda belirtilen URL&apos;ye POST isteği at</div>
+                            </div>
+                          </div>
+                          <input
+                            value={editWebhookUrl}
+                            onChange={e => setEditWebhookUrl(e.target.value)}
+                            placeholder="https://hooks.zapier.com/hooks/catch/..."
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-slate-400 mt-2">
+                            Payload: event, role, content, conversationId, siteId, siteName, timestamp
+                          </p>
+                        </div>
+
+                        {/* HubSpot */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xl">🟠</span>
+                            <div>
+                              <div className="text-sm font-semibold text-slate-800">HubSpot CRM</div>
+                              <div className="text-xs text-slate-400">İlk konuşmada otomatik contact oluştur</div>
+                            </div>
+                          </div>
+                          <input
+                            value={editHubspotKey}
+                            onChange={e => setEditHubspotKey(e.target.value)}
+                            placeholder="HubSpot Private App Token"
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                          <p className="text-xs text-slate-400 mt-2">
+                            HubSpot → Settings → Private Apps → Create → CRM → contacts (write)
+                          </p>
+                        </div>
+
+                        {/* Pipedrive */}
+                        <div className="border border-slate-200 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xl">🟢</span>
+                            <div>
+                              <div className="text-sm font-semibold text-slate-800">Pipedrive CRM</div>
+                              <div className="text-xs text-slate-400">İlk konuşmada otomatik person oluştur</div>
+                            </div>
+                          </div>
+                          <div className="space-y-2">
+                            <input
+                              value={editPipedriveKey}
+                              onChange={e => setEditPipedriveKey(e.target.value)}
+                              placeholder="API Token"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                            <input
+                              value={editPipedriveDomain}
+                              onChange={e => setEditPipedriveDomain(e.target.value)}
+                              placeholder="Company domain (örn: mycompany — mycompany.pipedrive.com)"
+                              className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <p className="text-xs text-slate-400 mt-2">
+                            Pipedrive → Settings → Personal → API Token
+                          </p>
+                        </div>
+                      </div>
                     )}
 
                     <div className="flex gap-2 pt-2">
