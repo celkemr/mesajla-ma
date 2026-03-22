@@ -48,19 +48,20 @@ export async function POST(req: NextRequest) {
   }
 
   const languageInstructions: Record<string, string> = {
-    tr: 'Her zaman Türkçe yanıt ver.',
-    en: 'Always respond in English.',
-    de: 'Antworte immer auf Deutsch.',
-    fr: 'Réponds toujours en français.',
-    es: 'Responde siempre en español.',
-    ar: 'أجب دائماً باللغة العربية.',
-    ru: 'Всегда отвечай на русском языке.',
-    nl: 'Antwoord altijd in het Nederlands.',
-    it: 'Rispondi sempre in italiano.',
-    pt: 'Responda sempre em português.',
+    tr: 'ZORUNLU: Kullanıcı hangi dilde yazarsa yazsın, yalnızca ve yalnızca Türkçe yanıt ver. Başka dil kullanma.',
+    en: 'MANDATORY: Always respond ONLY in English, regardless of the language the user writes in.',
+    de: 'PFLICHT: Antworte IMMER NUR auf Deutsch, egal in welcher Sprache der Nutzer schreibt.',
+    fr: 'OBLIGATOIRE: Réponds UNIQUEMENT en français, quelle que soit la langue utilisée.',
+    es: 'OBLIGATORIO: Responde SOLO en español, sin importar el idioma del usuario.',
+    ar: 'إلزامي: أجب دائماً باللغة العربية فقط بغض النظر عن لغة المستخدم.',
+    ru: 'ОБЯЗАТЕЛЬНО: Всегда отвечай ТОЛЬКО на русском языке, независимо от языка пользователя.',
+    nl: 'VERPLICHT: Antwoord ALTIJD ALLEEN in het Nederlands, ongeacht de taal van de gebruiker.',
+    it: 'OBBLIGATORIO: Rispondi SOLO in italiano, indipendentemente dalla lingua dell\'utente.',
+    pt: 'OBRIGATÓRIO: Responda SOMENTE em português, independentemente do idioma do usuário.',
   };
-  const langNote = languageInstructions[site.widget_language || 'tr'] || languageInstructions['tr'];
-  const systemPrompt = `${site.system_prompt}\n\n${langNote}`;
+  const lang = site.widget_language || 'tr';
+  const langNote = languageInstructions[lang] || languageInstructions['tr'];
+  const systemPrompt = `[DİL KURALI / LANGUAGE RULE]: ${langNote}\n\n${site.system_prompt}`;
 
   const history = await getConversationMessages(conversation.id);
   const openaiMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
