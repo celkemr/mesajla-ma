@@ -264,6 +264,7 @@
       this._loadHistory();
       this._startPolling();
       this._startBubble();
+      this._startPinging();
     },
 
     _t: function (key) {
@@ -547,6 +548,25 @@
     _hideTyping: function () {
       var el = document.getElementById('mp-typing-indicator');
       if (el) el.remove();
+    },
+
+    _pingVisitor: function () {
+      var self = this;
+      fetch(self.config.panelUrl + '/api/visitor-ping', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': self.config.apiKey },
+        body: JSON.stringify({
+          sessionId: self.sessionId,
+          currentPage: window.location.href,
+          visitorName: self._visitorInfo ? self._visitorInfo.name : undefined,
+        }),
+      }).catch(function () {});
+    },
+
+    _startPinging: function () {
+      var self = this;
+      self._pingVisitor();
+      setInterval(function () { self._pingVisitor(); }, 30000);
     },
 
     _visitorInfoKey: function () {

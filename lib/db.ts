@@ -87,6 +87,19 @@ async function ensureInit(): Promise<void> {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS visitors (
+      id TEXT PRIMARY KEY,
+      site_id TEXT NOT NULL,
+      session_id TEXT NOT NULL,
+      ip_address TEXT,
+      country_code TEXT,
+      current_page TEXT,
+      user_agent TEXT,
+      visitor_name TEXT,
+      last_seen TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
+    );
   `);
 
   // Mevcut tablolara widget kolonlarını ekle (migration)
@@ -385,6 +398,47 @@ export async function deleteUser(id: string) {
 export async function getUserCount(): Promise<number> {
   const res = await one<{ c: number }>('SELECT COUNT(*) as c FROM users');
   return Number(res?.c ?? 0);
+}
+
+// --- Visitors ---
+export async function upsertVisitor(data: {
+  siteId: string;
+  sessionId: string;
+  ipAddress?: string;
+  countryCode?: string;
+  currentPage?: string;
+  userAgent?: string;
+  visitorName?: string;
+}) {
+  const existing = await one<{ id: string }>('SELECT id FROM visitors WHERE session_id = ? AND site_id = ?', [data.sessionId, data.siteId]);
+  if (existing) {
+    await run(
+      "UPDATE visitors SET current_page = ?, last_seen = datetime('now'), visitor_name = COALESCE(?, visitor_name), ip_address = COALESCE(ip_address, ?), country_code = COALESCE(country_code, ?) WHERE id = ?",
+      [data.currentPage ?? null, data.visitorName ?? null, data.ipAddress ?? null, data.countryCode ?? null, existing.id]
+    );
+  } else {
+    const id = uuidv4();
+    await run(
+      'INSERT INTO visitors (id, site_id, session_id, ip_address, country_code, current_page, user_agent, visitor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, data.siteId, data.sessionId, data.ipAddress ?? null, data.countryCode ?? null, data.currentPage ?? null, data.userAgent ?? null, data.visitorName ?? null]
+    );
+  }
+}
+
+export async function getActiveVisitors(siteId?: string) {
+  let query = `
+    SELECT v.*, s.name as site_name, s.domain as site_domain
+    FROM visitors v JOIN sites s ON s.id = v.site_id
+    WHERE v.last_seen > datetime('now', '-3 minutes')
+  `;
+  const params: InValue[] = [];
+  if (siteId) { query += ' AND v.site_id = ?'; params.push(siteId); }
+  query += ' ORDER BY v.last_seen DESC';
+  return all(query, params);
+}
+
+export async function cleanupVisitors() {
+  await run("DELETE FROM visitors WHERE last_seen < datetime('now', '-30 minutes')");
 }
 
 // --- Stats ---
