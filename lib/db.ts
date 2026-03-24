@@ -4,6 +4,7 @@ import { hashPassword } from './auth';
 
 let _client: Client | null = null;
 let _initialized = false;
+let _ayhanMigrated = false;
 
 function getClient(): Client {
   if (!_client) {
@@ -16,9 +17,13 @@ function getClient(): Client {
 }
 
 async function ensureInit(): Promise<void> {
+  const c = getClient();
+  if (!_ayhanMigrated) {
+    _ayhanMigrated = true;
+    await _assignNullSites(c);
+  }
   if (_initialized) return;
   _initialized = true;
-  const c = getClient();
 
   await c.executeMultiple(`
     CREATE TABLE IF NOT EXISTS sites (
@@ -171,7 +176,16 @@ async function ensureInit(): Promise<void> {
     await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'celkemr', hash] });
   }
 
-  // user_id'si olmayan siteleri ayhan kullanıcısına ata
+  // ayhan kullanıcısı yoksa oluştur (şifre: ayhan2024!)
+  const ay = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['ayhan'] });
+  if (ay.rows.length === 0) {
+    const id = uuidv4();
+    const hash = hashPassword('ayhan2024!');
+    await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'ayhan', hash] });
+  }
+}
+
+async function _assignNullSites(c: Client): Promise<void> {
   const ayhan = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['ayhan'] });
   if (ayhan.rows.length > 0) {
     const ayhanId = ayhan.rows[0].id as string;
