@@ -255,7 +255,7 @@ export async function getAllSites(userId?: string) {
       SUM(CASE WHEN m.status = 'unread' THEN 1 ELSE 0 END) as unread_count
       FROM sites s
       LEFT JOIN messages m ON m.site_id = s.id
-      WHERE s.user_id = ?
+      WHERE s.user_id = ? OR s.user_id IS NULL
       GROUP BY s.id
       ORDER BY s.created_at DESC
     `, [userId]);
