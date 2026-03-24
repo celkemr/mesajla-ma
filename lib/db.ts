@@ -416,7 +416,7 @@ export async function getAllConversations(filters: { siteId?: string; status?: s
   if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND c.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND c.status = ?'; params.push(filters.status); }
-  query += ' GROUP BY c.id ORDER BY c.updated_at DESC';
+  query += ' GROUP BY c.id HAVING COUNT(cm.id) > 0 ORDER BY c.updated_at DESC';
   return all(query, params);
 }
 
