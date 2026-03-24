@@ -255,7 +255,7 @@ export async function getAllSites(userId?: string) {
       SUM(CASE WHEN m.status = 'unread' THEN 1 ELSE 0 END) as unread_count
       FROM sites s
       LEFT JOIN messages m ON m.site_id = s.id
-      WHERE s.user_id = ? OR s.user_id IS NULL
+      WHERE s.user_id = ?
       GROUP BY s.id
       ORDER BY s.created_at DESC
     `, [userId]);
@@ -335,7 +335,7 @@ export async function getAllMessages(filters: { siteId?: string; status?: string
     FROM messages m JOIN sites s ON s.id = m.site_id WHERE 1=1
   `;
   const params: InValue[] = [];
-  if (filters.userId) { query += ' AND (s.user_id = ? OR s.user_id IS NULL)'; params.push(filters.userId); }
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND m.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
   if (filters.search) {
@@ -399,7 +399,7 @@ export async function getAllConversations(filters: { siteId?: string; status?: s
     WHERE 1=1
   `;
   const params: InValue[] = [];
-  if (filters.userId) { query += ' AND (s.user_id = ? OR s.user_id IS NULL)'; params.push(filters.userId); }
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND c.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND c.status = ?'; params.push(filters.status); }
   query += ' GROUP BY c.id ORDER BY c.updated_at DESC';
@@ -490,7 +490,7 @@ export async function getAllLeads(filters: { siteId?: string; status?: string; u
     WHERE 1=1
   `;
   const params: InValue[] = [];
-  if (filters.userId) { query += ' AND (s.user_id = ? OR s.user_id IS NULL)'; params.push(filters.userId); }
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND l.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND l.status = ?'; params.push(filters.status); }
   query += ' ORDER BY l.created_at DESC';
@@ -520,6 +520,16 @@ export async function updateLead(id: string, data: { status?: string; notes?: st
 
 export async function deleteLead(id: string) {
   await run('DELETE FROM leads WHERE id = ?', [id]);
+}
+
+export async function assignNullSitesToUser(username: string): Promise<number> {
+  await ensureInit();
+  const c = getClient();
+  const userRow = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: [username] });
+  if (userRow.rows.length === 0) return 0;
+  const targetId = userRow.rows[0].id as string;
+  const result = await c.execute({ sql: 'UPDATE sites SET user_id = ? WHERE user_id IS NULL', args: [targetId] });
+  return result.rowsAffected;
 }
 
 // --- Users ---
@@ -599,7 +609,7 @@ export async function getActiveVisitors(siteId?: string, userId?: string) {
     WHERE v.last_seen > datetime('now', '-3 minutes')
   `;
   const params: InValue[] = [];
-  if (userId) { query += ' AND (s.user_id = ? OR s.user_id IS NULL)'; params.push(userId); }
+  if (userId) { query += ' AND s.user_id = ?'; params.push(userId); }
   if (siteId) { query += ' AND v.site_id = ?'; params.push(siteId); }
   query += ' ORDER BY v.last_seen DESC';
   return all(query, params);
@@ -610,9 +620,9 @@ export async function getVisitorStats(userId?: string) {
   const c = getClient();
   if (userId) {
     const [todayCount, topCountries, hourlyData] = await Promise.all([
-      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE (s.user_id = ? OR s.user_id IS NULL) AND v.first_seen > datetime('now', 'start of day')", args: [userId] }),
-      c.execute({ sql: "SELECT v.country_code, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE (s.user_id = ? OR s.user_id IS NULL) AND v.first_seen > datetime('now', '-7 days') AND v.country_code IS NOT NULL GROUP BY v.country_code ORDER BY count DESC LIMIT 5", args: [userId] }),
-      c.execute({ sql: "SELECT CAST(strftime('%H', v.last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE (s.user_id = ? OR s.user_id IS NULL) AND v.last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', 'start of day')", args: [userId] }),
+      c.execute({ sql: "SELECT v.country_code, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', '-7 days') AND v.country_code IS NOT NULL GROUP BY v.country_code ORDER BY count DESC LIMIT 5", args: [userId] }),
+      c.execute({ sql: "SELECT CAST(strftime('%H', v.last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args: [userId] }),
     ]);
     return {
       todayCount: Number(todayCount.rows[0]?.count ?? 0),
@@ -649,12 +659,12 @@ export async function getStats(userId?: string) {
   const c = getClient();
   if (userId) {
     const [total, unread, replied, sites, conversations, activeConversations] = await Promise.all([
-      c.execute({ sql: 'SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE (s.user_id = ? OR s.user_id IS NULL)', args: [userId] }),
-      c.execute({ sql: "SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE (s.user_id = ? OR s.user_id IS NULL) AND m.status = 'unread'", args: [userId] }),
-      c.execute({ sql: "SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE (s.user_id = ? OR s.user_id IS NULL) AND m.status = 'replied'", args: [userId] }),
-      c.execute({ sql: 'SELECT COUNT(*) as c FROM sites WHERE (user_id = ? OR user_id IS NULL)', args: [userId] }),
-      c.execute({ sql: 'SELECT COUNT(*) as c FROM conversations cv JOIN sites s ON s.id = cv.site_id WHERE (s.user_id = ? OR s.user_id IS NULL)', args: [userId] }),
-      c.execute({ sql: "SELECT COUNT(*) as c FROM conversations cv JOIN sites s ON s.id = cv.site_id WHERE (s.user_id = ? OR s.user_id IS NULL) AND cv.status = 'active'", args: [userId] }),
+      c.execute({ sql: 'SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE s.user_id = ?', args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE s.user_id = ? AND m.status = 'unread'", args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE s.user_id = ? AND m.status = 'replied'", args: [userId] }),
+      c.execute({ sql: 'SELECT COUNT(*) as c FROM sites WHERE user_id = ?', args: [userId] }),
+      c.execute({ sql: 'SELECT COUNT(*) as c FROM conversations cv JOIN sites s ON s.id = cv.site_id WHERE s.user_id = ?', args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as c FROM conversations cv JOIN sites s ON s.id = cv.site_id WHERE s.user_id = ? AND cv.status = 'active'", args: [userId] }),
     ]);
     return {
       total: Number(total.rows[0].c),
