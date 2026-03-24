@@ -176,17 +176,17 @@ async function ensureInit(): Promise<void> {
     await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'celkemr', hash] });
   }
 
-  // ayhan kullanıcısı yoksa oluştur (şifre: ayhan2024!)
-  const ay = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['ayhan'] });
+  // Ayhan kullanıcısı yoksa oluştur (şifre: ayhan2024!)
+  const ay = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['Ayhan'] });
   if (ay.rows.length === 0) {
     const id = uuidv4();
     const hash = hashPassword('ayhan2024!');
-    await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'ayhan', hash] });
+    await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'Ayhan', hash] });
   }
 }
 
 async function _assignNullSites(c: Client): Promise<void> {
-  const ayhan = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['ayhan'] });
+  const ayhan = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['Ayhan'] });
   if (ayhan.rows.length > 0) {
     const ayhanId = ayhan.rows[0].id as string;
     await c.execute({ sql: 'UPDATE sites SET user_id = ? WHERE user_id IS NULL', args: [ayhanId] });
