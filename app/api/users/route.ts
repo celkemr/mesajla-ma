@@ -20,6 +20,12 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const token = req.cookies.get('auth_token')?.value;
+  const tokenData = token ? verifyToken(token) : null;
+  if (!tokenData || tokenData.username !== SUPER_ADMIN) {
+    return NextResponse.json({ error: 'Sadece süper admin kullanıcı oluşturabilir' }, { status: 403 });
+  }
+
   const { username, password } = await req.json();
   if (!username || !password) {
     return NextResponse.json({ error: 'Kullanıcı adı ve şifre gerekli' }, { status: 400 });

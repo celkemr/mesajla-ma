@@ -119,7 +119,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* Nav */}
         <nav className="flex-1 px-3 space-y-0.5">
           <p className="text-[10px] font-semibold tracking-widest text-[#4b5563] uppercase px-3 mb-2">Menü</p>
-          {navItems.map((item) => {
+          {navItems.filter(item => item.href !== '/users' || me?.isSuperAdmin).map((item) => {
             const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
             const showBadge = item.badge && newCount > 0;
             return (
@@ -214,7 +214,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* ── Mobil Alt Navigasyon Bar ── */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-slate-200/80 flex items-stretch" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        {navItems.map((item) => {
+        {navItems.filter(item => item.href !== '/users' || me?.isSuperAdmin).map((item) => {
           const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
           const showBadge = item.badge && newCount > 0;
           return (

@@ -34,6 +34,7 @@ async function ensureInit(): Promise<void> {
       widget_typing_indicator INTEGER NOT NULL DEFAULT 1,
       widget_online_indicator INTEGER NOT NULL DEFAULT 1,
       widget_language TEXT NOT NULL DEFAULT 'tr',
+      user_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -147,6 +148,7 @@ async function ensureInit(): Promise<void> {
     "ALTER TABLE sites ADD COLUMN pipedrive_domain TEXT",
     "ALTER TABLE conversations ADD COLUMN summary TEXT",
     "ALTER TABLE chat_messages ADD COLUMN file_url TEXT",
+    "ALTER TABLE sites ADD COLUMN user_id TEXT",
   ];
   for (const sql of migrations) {
     try { await c.execute(sql); } catch { /* kolon zaten varsa yok say */ }
@@ -167,6 +169,13 @@ async function ensureInit(): Promise<void> {
     const id = uuidv4();
     const hash = hashPassword('celkemr2024!');
     await c.execute({ sql: 'INSERT INTO users (id, username, password_hash) VALUES (?, ?, ?)', args: [id, 'celkemr', hash] });
+  }
+
+  // user_id'si olmayan siteleri ayhan kullanıcısına ata
+  const ayhan = await c.execute({ sql: 'SELECT id FROM users WHERE username = ?', args: ['ayhan'] });
+  if (ayhan.rows.length > 0) {
+    const ayhanId = ayhan.rows[0].id as string;
+    await c.execute({ sql: 'UPDATE sites SET user_id = ? WHERE user_id IS NULL', args: [ayhanId] });
   }
 }
 
@@ -239,7 +248,18 @@ export interface Conversation {
 }
 
 // --- Sites ---
-export async function getAllSites() {
+export async function getAllSites(userId?: string) {
+  if (userId) {
+    return all(`
+      SELECT s.*, COUNT(m.id) as message_count,
+      SUM(CASE WHEN m.status = 'unread' THEN 1 ELSE 0 END) as unread_count
+      FROM sites s
+      LEFT JOIN messages m ON m.site_id = s.id
+      WHERE s.user_id = ?
+      GROUP BY s.id
+      ORDER BY s.created_at DESC
+    `, [userId]);
+  }
   return all(`
     SELECT s.*, COUNT(m.id) as message_count,
     SUM(CASE WHEN m.status = 'unread' THEN 1 ELSE 0 END) as unread_count
@@ -268,12 +288,13 @@ export async function createSite(
   widgetWelcomeMessage = 'Merhaba! Size nasıl yardımcı olabilirim?',
   widgetTypingIndicator = 1,
   widgetOnlineIndicator = 1,
+  userId?: string,
 ) {
   const id = uuidv4();
   const apiKey = `mk_${uuidv4().replace(/-/g, '')}`;
   await run(
-    'INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt, widget_position, widget_color, widget_welcome_message, widget_typing_indicator, widget_online_indicator) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, name, domain, apiKey, botName, systemPrompt, widgetPosition, widgetColor, widgetWelcomeMessage, widgetTypingIndicator, widgetOnlineIndicator],
+    'INSERT INTO sites (id, name, domain, api_key, bot_name, system_prompt, widget_position, widget_color, widget_welcome_message, widget_typing_indicator, widget_online_indicator, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [id, name, domain, apiKey, botName, systemPrompt, widgetPosition, widgetColor, widgetWelcomeMessage, widgetTypingIndicator, widgetOnlineIndicator, userId ?? null],
   );
   return one<Site>('SELECT * FROM sites WHERE id = ?', [id]);
 }
@@ -307,13 +328,14 @@ export async function deleteSite(id: string) {
 }
 
 // --- Messages ---
-export async function getAllMessages(filters: { siteId?: string; status?: string; search?: string } = {}) {
+export async function getAllMessages(filters: { siteId?: string; status?: string; search?: string; userId?: string } = {}) {
   let query = `
     SELECT m.*, s.name as site_name, s.domain as site_domain,
     (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id) as reply_count
     FROM messages m JOIN sites s ON s.id = m.site_id WHERE 1=1
   `;
   const params: InValue[] = [];
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND m.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
   if (filters.search) {
@@ -366,7 +388,7 @@ export async function createReply(messageId: string, content: string) {
 }
 
 // --- Conversations ---
-export async function getAllConversations(filters: { siteId?: string; status?: string } = {}) {
+export async function getAllConversations(filters: { siteId?: string; status?: string; userId?: string } = {}) {
   let query = `
     SELECT c.*, s.name as site_name, s.domain as site_domain,
     COUNT(cm.id) as message_count,
@@ -377,6 +399,7 @@ export async function getAllConversations(filters: { siteId?: string; status?: s
     WHERE 1=1
   `;
   const params: InValue[] = [];
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND c.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND c.status = ?'; params.push(filters.status); }
   query += ' GROUP BY c.id ORDER BY c.updated_at DESC';
@@ -459,7 +482,7 @@ export interface Lead {
   site_name?: string;
 }
 
-export async function getAllLeads(filters: { siteId?: string; status?: string } = {}) {
+export async function getAllLeads(filters: { siteId?: string; status?: string; userId?: string } = {}) {
   let query = `
     SELECT l.*, s.name as site_name
     FROM leads l
@@ -467,6 +490,7 @@ export async function getAllLeads(filters: { siteId?: string; status?: string } 
     WHERE 1=1
   `;
   const params: InValue[] = [];
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND l.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND l.status = ?'; params.push(filters.status); }
   query += ' ORDER BY l.created_at DESC';
@@ -566,7 +590,7 @@ export async function upsertVisitor(data: {
   }
 }
 
-export async function getActiveVisitors(siteId?: string) {
+export async function getActiveVisitors(siteId?: string, userId?: string) {
   let query = `
     SELECT v.*, s.name as site_name, s.domain as site_domain, c.id as conversation_id
     FROM visitors v
@@ -575,14 +599,27 @@ export async function getActiveVisitors(siteId?: string) {
     WHERE v.last_seen > datetime('now', '-3 minutes')
   `;
   const params: InValue[] = [];
+  if (userId) { query += ' AND s.user_id = ?'; params.push(userId); }
   if (siteId) { query += ' AND v.site_id = ?'; params.push(siteId); }
   query += ' ORDER BY v.last_seen DESC';
   return all(query, params);
 }
 
-export async function getVisitorStats() {
+export async function getVisitorStats(userId?: string) {
   await ensureInit();
   const c = getClient();
+  if (userId) {
+    const [todayCount, topCountries, hourlyData] = await Promise.all([
+      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', 'start of day')", args: [userId] }),
+      c.execute({ sql: "SELECT v.country_code, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', '-7 days') AND v.country_code IS NOT NULL GROUP BY v.country_code ORDER BY count DESC LIMIT 5", args: [userId] }),
+      c.execute({ sql: "SELECT CAST(strftime('%H', v.last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args: [userId] }),
+    ]);
+    return {
+      todayCount: Number(todayCount.rows[0]?.count ?? 0),
+      topCountries: topCountries.rows as unknown as { country_code: string; count: number }[],
+      hourlyData: hourlyData.rows as unknown as { hour: number; count: number }[],
+    };
+  }
   const [todayCount, topCountries, hourlyData] = await Promise.all([
     c.execute("SELECT COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', 'start of day')"),
     c.execute("SELECT country_code, COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', '-7 days') AND country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 5"),
@@ -607,9 +644,27 @@ export async function cleanupVisitors() {
 }
 
 // --- Stats ---
-export async function getStats() {
+export async function getStats(userId?: string) {
   await ensureInit();
   const c = getClient();
+  if (userId) {
+    const [total, unread, replied, sites, conversations, activeConversations] = await Promise.all([
+      c.execute({ sql: 'SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE s.user_id = ?', args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE s.user_id = ? AND m.status = 'unread'", args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as c FROM messages m JOIN sites s ON s.id = m.site_id WHERE s.user_id = ? AND m.status = 'replied'", args: [userId] }),
+      c.execute({ sql: 'SELECT COUNT(*) as c FROM sites WHERE user_id = ?', args: [userId] }),
+      c.execute({ sql: 'SELECT COUNT(*) as c FROM conversations cv JOIN sites s ON s.id = cv.site_id WHERE s.user_id = ?', args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as c FROM conversations cv JOIN sites s ON s.id = cv.site_id WHERE s.user_id = ? AND cv.status = 'active'", args: [userId] }),
+    ]);
+    return {
+      total: Number(total.rows[0].c),
+      unread: Number(unread.rows[0].c),
+      replied: Number(replied.rows[0].c),
+      sites: Number(sites.rows[0].c),
+      conversations: Number(conversations.rows[0].c),
+      activeConversations: Number(activeConversations.rows[0].c),
+    };
+  }
   const [total, unread, replied, sites, conversations, activeConversations] = await Promise.all([
     c.execute('SELECT COUNT(*) as c FROM messages'),
     c.execute("SELECT COUNT(*) as c FROM messages WHERE status = 'unread'"),

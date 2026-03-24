@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import type { NextRequest } from 'next/server';
 
 const SECRET = process.env.SESSION_SECRET || 'mesajpaneli-secret-key-2024';
 
@@ -23,6 +24,21 @@ export function createToken(userId: string, username: string): string {
   const payload = Buffer.from(JSON.stringify({ userId, username, exp })).toString('base64url');
   const sig = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
   return `${payload}.${sig}`;
+}
+
+// Süper admin kullanıcı adı
+export const SUPER_ADMIN = 'celkemr';
+
+// Request'ten mevcut kullanıcıyı al
+// Süper admin ise userId=undefined döner (tüm verileri görebilir)
+// Normal kullanıcı ise kendi userId'sini döner
+export function getCurrentUser(req: NextRequest): { userId?: string; username: string } | null {
+  const token = req.cookies.get('auth_token')?.value;
+  if (!token) return null;
+  const data = verifyToken(token);
+  if (!data) return null;
+  if (data.username === SUPER_ADMIN) return { username: data.username, userId: undefined };
+  return { userId: data.userId, username: data.username };
 }
 
 export function verifyToken(token: string): { userId: string; username: string; exp: number } | null {

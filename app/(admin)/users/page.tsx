@@ -32,8 +32,11 @@ export default function UsersPage() {
 
   useEffect(() => {
     load();
-    fetch('/api/auth/me').then(r => r.json()).then(d => setMe(d.user)).catch(() => {});
-  }, []);
+    fetch('/api/auth/me').then(r => r.json()).then(d => {
+      setMe(d.user);
+      if (d.user && !d.user.isSuperAdmin) router.replace('/');
+    }).catch(() => {});
+  }, [router]);
 
   async function addUser() {
     setError('');
