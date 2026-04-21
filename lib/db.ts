@@ -629,14 +629,17 @@ export async function getActiveVisitors(siteId?: string, userId?: string) {
   return all(query, params);
 }
 
-export async function getVisitorStats(userId?: string) {
+export async function getVisitorStats(userId?: string, siteId?: string, days: number = 7) {
   await ensureInit();
   const c = getClient();
-  if (userId) {
+  const dayFilter = `-${days} days`;
+
+  if (siteId) {
+    const args: InValue[] = [siteId];
     const [todayCount, topCountries, hourlyData] = await Promise.all([
-      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', 'start of day')", args: [userId] }),
-      c.execute({ sql: "SELECT v.country_code, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', '-7 days') AND v.country_code IS NOT NULL GROUP BY v.country_code ORDER BY count DESC LIMIT 5", args: [userId] }),
-      c.execute({ sql: "SELECT CAST(strftime('%H', v.last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args: [userId] }),
+      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors WHERE site_id = ? AND first_seen > datetime('now', 'start of day')", args }),
+      c.execute({ sql: `SELECT country_code, COUNT(*) as count FROM visitors WHERE site_id = ? AND first_seen > datetime('now', '${dayFilter}') AND country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 5`, args }),
+      c.execute({ sql: "SELECT CAST(strftime('%H', last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors WHERE site_id = ? AND last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args }),
     ]);
     return {
       todayCount: Number(todayCount.rows[0]?.count ?? 0),
@@ -644,9 +647,24 @@ export async function getVisitorStats(userId?: string) {
       hourlyData: hourlyData.rows as unknown as { hour: number; count: number }[],
     };
   }
+
+  if (userId) {
+    const args: InValue[] = [userId];
+    const [todayCount, topCountries, hourlyData] = await Promise.all([
+      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', 'start of day')", args }),
+      c.execute({ sql: `SELECT v.country_code, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.first_seen > datetime('now', '${dayFilter}') AND v.country_code IS NOT NULL GROUP BY v.country_code ORDER BY count DESC LIMIT 5`, args }),
+      c.execute({ sql: "SELECT CAST(strftime('%H', v.last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE s.user_id = ? AND v.last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args }),
+    ]);
+    return {
+      todayCount: Number(todayCount.rows[0]?.count ?? 0),
+      topCountries: topCountries.rows as unknown as { country_code: string; count: number }[],
+      hourlyData: hourlyData.rows as unknown as { hour: number; count: number }[],
+    };
+  }
+
   const [todayCount, topCountries, hourlyData] = await Promise.all([
     c.execute("SELECT COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', 'start of day')"),
-    c.execute("SELECT country_code, COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', '-7 days') AND country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 5"),
+    c.execute({ sql: `SELECT country_code, COUNT(*) as count FROM visitors WHERE first_seen > datetime('now', '${dayFilter}') AND country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 5`, args: [] }),
     c.execute("SELECT CAST(strftime('%H', last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors WHERE last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour"),
   ]);
   return {

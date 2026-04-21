@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSiteByApiKey, createMessage } from '@/lib/db';
 
+function isAllowedOrigin(origin: string | null, siteDomain: string): boolean {
+  if (!origin) return true; // server-to-server
+  try {
+    const originHost = new URL(origin).hostname.replace(/^www\./, '');
+    const siteHost = siteDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    return originHost === siteHost || originHost === 'localhost' || originHost.endsWith('.localhost');
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get('origin');
   try {
     const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
     if (!apiKey) {
@@ -11,6 +23,10 @@ export async function POST(req: NextRequest) {
     const site = await getSiteByApiKey(apiKey);
     if (!site) {
       return NextResponse.json({ error: 'Invalid API key' }, { status: 401 });
+    }
+
+    if (!isAllowedOrigin(origin, site.domain)) {
+      return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
     }
 
     const body = await req.json();
@@ -29,18 +45,33 @@ export async function POST(req: NextRequest) {
       extra_fields: extraFields,
     });
 
-    return NextResponse.json({ success: true, message_id: (message as unknown as { id: string }).id });
+    const corsHeaders = origin ? { 'Access-Control-Allow-Origin': origin } : {};
+    return NextResponse.json(
+      { success: true, message_id: (message as unknown as { id: string }).id },
+      { headers: corsHeaders }
+    );
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
-export async function OPTIONS() {
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get('origin');
+  const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
+  let allowedOrigin = 'null';
+
+  if (apiKey) {
+    const site = await getSiteByApiKey(apiKey);
+    if (site && origin && isAllowedOrigin(origin, site.domain)) {
+      allowedOrigin = origin;
+    }
+  }
+
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
     },

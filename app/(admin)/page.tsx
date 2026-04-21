@@ -27,6 +27,12 @@ interface VisitorStats {
   hourlyData: { hour: number; count: number }[];
 }
 
+interface Site {
+  id: string;
+  name: string;
+  domain: string;
+}
+
 const COUNTRY_NAMES: Record<string, string> = {
   TR: 'Türkiye', US: 'ABD', GB: 'İngiltere', DE: 'Almanya', FR: 'Fransa',
   IT: 'İtalya', ES: 'İspanya', NL: 'Hollanda', AE: 'BAE', SA: 'S. Arabistan',
@@ -89,6 +95,9 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [recent, setRecent] = useState<Message[]>([]);
   const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null);
+  const [sites, setSites] = useState<Site[]>([]);
+  const [selectedSite, setSelectedSite] = useState<string>('');
+  const [days, setDays] = useState<7 | 30>(7);
 
   useEffect(() => {
     fetch('/api/messages?status=')
@@ -97,8 +106,14 @@ export default function DashboardPage() {
         setStats(data.stats);
         setRecent(data.messages.slice(0, 5));
       });
-    fetch('/api/visitor-stats').then(r => r.json()).then(setVisitorStats).catch(() => {});
+    fetch('/api/sites').then(r => r.json()).then((data) => setSites(data.sites || [])).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams({ days: String(days) });
+    if (selectedSite) params.set('siteId', selectedSite);
+    fetch(`/api/visitor-stats?${params}`).then(r => r.json()).then(setVisitorStats).catch(() => {});
+  }, [selectedSite, days]);
 
   const maxHourly = visitorStats ? Math.max(...visitorStats.hourlyData.map(h => h.count), 1) : 1;
   const today = new Date().toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -144,7 +159,25 @@ export default function DashboardPage() {
             </div>
 
             <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-sm">
-              <p className="text-sm font-medium text-slate-600 mb-3">En Çok Gelen Ülkeler</p>
+              <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+                <p className="text-sm font-medium text-slate-600">En Çok Gelen Ülkeler</p>
+                <div className="flex items-center gap-1.5">
+                  {sites.length > 1 && (
+                    <select
+                      value={selectedSite}
+                      onChange={e => setSelectedSite(e.target.value)}
+                      className="text-xs border border-slate-200 rounded-lg px-2 py-1 text-slate-600 bg-white outline-none"
+                    >
+                      <option value="">Tüm Siteler</option>
+                      {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  )}
+                  <div className="flex rounded-lg border border-slate-200 overflow-hidden text-xs">
+                    <button onClick={() => setDays(7)} className={`px-2 py-1 ${days === 7 ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>7G</button>
+                    <button onClick={() => setDays(30)} className={`px-2 py-1 ${days === 30 ? 'bg-indigo-500 text-white' : 'text-slate-500 hover:bg-slate-50'}`}>30G</button>
+                  </div>
+                </div>
+              </div>
               {visitorStats.topCountries.length === 0 ? (
                 <p className="text-slate-400 text-sm">Henüz veri yok</p>
               ) : (

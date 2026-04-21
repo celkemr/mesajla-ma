@@ -27,23 +27,42 @@ function getOpenAI() {
   return _openai;
 }
 
-export async function POST(req: NextRequest) {
-  const origin = req.headers.get('origin') || '*';
-  const corsHeaders = {
+function isAllowedOrigin(origin: string | null, siteDomain: string): boolean {
+  if (!origin) return true;
+  try {
+    const originHost = new URL(origin).hostname.replace(/^www\./, '');
+    const siteHost = siteDomain.replace(/^https?:\/\//, '').replace(/^www\./, '').split('/')[0];
+    return originHost === siteHost || originHost === 'localhost' || originHost.endsWith('.localhost');
+  } catch {
+    return false;
+  }
+}
+
+function corsHeaders(origin: string) {
+  return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
   };
+}
+
+export async function POST(req: NextRequest) {
+  const origin = req.headers.get('origin');
 
   const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
-  if (!apiKey) return NextResponse.json({ error: 'API anahtarı gerekli' }, { status: 401, headers: corsHeaders });
+  if (!apiKey) return NextResponse.json({ error: 'API anahtarı gerekli' }, { status: 401 });
 
   const site = await getSiteByApiKey(apiKey);
-  if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401, headers: corsHeaders });
+  if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401 });
+
+  if (origin && !isAllowedOrigin(origin, site.domain)) {
+    return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
+  }
+  const headers = corsHeaders(origin || site.domain);
 
   const { message, sessionId, visitorName, visitorEmail, visitorPhone, fileData, fileName } = await req.json();
   if ((!message && !fileData) || !sessionId) {
-    return NextResponse.json({ error: 'message/fileData ve sessionId gerekli' }, { status: 400, headers: corsHeaders });
+    return NextResponse.json({ error: 'message/fileData ve sessionId gerekli' }, { status: 400, headers });
   }
 
   const conversation = await getOrCreateConversation(site.id, sessionId);
@@ -126,11 +145,11 @@ export async function POST(req: NextRequest) {
   }
 
   if (conversation.mode === 'human') {
-    return NextResponse.json({ reply: null, humanMode: true, conversationId: conversation.id }, { headers: corsHeaders });
+    return NextResponse.json({ reply: null, humanMode: true, conversationId: conversation.id }, { headers });
   }
 
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ reply: 'Bot henüz yapılandırılmadı. Lütfen yönetici ile iletişime geçin.', conversationId: conversation.id }, { headers: corsHeaders });
+    return NextResponse.json({ reply: 'Bot henüz yapılandırılmadı. Lütfen yönetici ile iletişime geçin.', conversationId: conversation.id }, { headers });
   }
 
   const languageInstructions: Record<string, string> = {
@@ -189,25 +208,25 @@ export async function POST(req: NextRequest) {
       .catch(console.error);
   }
 
-  return NextResponse.json({ reply, conversationId: conversation.id }, { headers: corsHeaders });
+  return NextResponse.json({ reply, conversationId: conversation.id }, { headers });
 }
 
 export async function GET(req: NextRequest) {
-  const origin = req.headers.get('origin') || '*';
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
-  };
+  const origin = req.headers.get('origin');
 
   const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
-  if (!apiKey) return NextResponse.json({ error: 'API anahtarı gerekli' }, { status: 401, headers: corsHeaders });
+  if (!apiKey) return NextResponse.json({ error: 'API anahtarı gerekli' }, { status: 401 });
 
   const site = await getSiteByApiKey(apiKey);
-  if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401, headers: corsHeaders });
+  if (!site) return NextResponse.json({ error: 'Geçersiz API anahtarı' }, { status: 401 });
+
+  if (origin && !isAllowedOrigin(origin, site.domain)) {
+    return NextResponse.json({ error: 'Origin not allowed' }, { status: 403 });
+  }
+  const headers = corsHeaders(origin || site.domain);
 
   const sessionId = req.nextUrl.searchParams.get('sessionId');
-  if (!sessionId) return NextResponse.json({ messages: [] }, { headers: corsHeaders });
+  if (!sessionId) return NextResponse.json({ messages: [] }, { headers });
 
   const conversation = await getOrCreateConversation(site.id, sessionId);
   const messages = await getConversationMessages(conversation.id);
@@ -222,15 +241,21 @@ export async function GET(req: NextRequest) {
       onlineIndicator: site.widget_online_indicator,
       widgetPosition: site.widget_position,
     },
-  }, { headers: corsHeaders });
+  }, { headers });
 }
 
 export async function OPTIONS(req: NextRequest) {
-  const origin = req.headers.get('origin') || '*';
+  const origin = req.headers.get('origin');
+  const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
+  let allowedOrigin = 'null';
+  if (apiKey) {
+    const site = await getSiteByApiKey(apiKey);
+    if (site && isAllowedOrigin(origin, site.domain)) allowedOrigin = origin || site.domain;
+  }
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Origin': allowedOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
     },
