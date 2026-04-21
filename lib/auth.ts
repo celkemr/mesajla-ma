@@ -1,7 +1,8 @@
 import crypto from 'crypto';
 import type { NextRequest } from 'next/server';
 
-const SECRET = process.env.SESSION_SECRET || 'mesajpaneli-secret-key-2024';
+if (!process.env.SESSION_SECRET) throw new Error('SESSION_SECRET env var is required');
+const SECRET = process.env.SESSION_SECRET;
 
 export function hashPassword(password: string): string {
   const salt = crypto.randomBytes(16).toString('hex');

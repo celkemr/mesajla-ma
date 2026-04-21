@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const SECRET = process.env.SESSION_SECRET || 'mesajpaneli-secret-key-2024';
+if (!process.env.SESSION_SECRET) throw new Error('SESSION_SECRET env var is required');
+const SECRET = process.env.SESSION_SECRET;
 
 async function verifyToken(token: string): Promise<boolean> {
   try {
