@@ -106,7 +106,7 @@ export default function DashboardPage() {
         setStats(data.stats);
         setRecent(data.messages.slice(0, 5));
       });
-    fetch('/api/sites').then(r => r.json()).then((data) => setSites(data.sites || [])).catch(() => {});
+    fetch('/api/sites').then(r => r.json()).then((data) => setSites(Array.isArray(data) ? data : [])).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -162,7 +162,7 @@ export default function DashboardPage() {
               <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
                 <p className="text-sm font-medium text-slate-600">En Çok Gelen Ülkeler</p>
                 <div className="flex items-center gap-1.5">
-                  {sites.length > 1 && (
+                  {sites.length > 0 && (
                     <select
                       value={selectedSite}
                       onChange={e => setSelectedSite(e.target.value)}
