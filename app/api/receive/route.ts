@@ -45,10 +45,9 @@ export async function POST(req: NextRequest) {
       extra_fields: extraFields,
     });
 
-    const corsHeaders = origin ? { 'Access-Control-Allow-Origin': origin } : {};
     return NextResponse.json(
       { success: true, message_id: (message as unknown as { id: string }).id },
-      { headers: corsHeaders }
+      origin ? { headers: { 'Access-Control-Allow-Origin': origin } } : undefined
     );
   } catch (err) {
     console.error(err);
