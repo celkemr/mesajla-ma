@@ -42,3 +42,8 @@ next-env.d.ts
 
 # yerel veritabani yedekleri
 backups/
+
+# eski yerel sqlite dosyalari
+*.db
+*.db-shm
+*.db-wal

@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserByUsername } from '@/lib/db';
+import {
+  getUserByUsername,
+  countRecentLoginFailures,
+  recordLoginFailure,
+  clearLoginFailures,
+  cleanupLoginAttempts,
+} from '@/lib/db';
 import { verifyPassword, createToken } from '@/lib/auth';
 
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS = 15 * 60 * 1000; // 15 dakika
+export const dynamic = 'force-dynamic';
 
-const attempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MINUTES = 15;
 
 function getIp(req: NextRequest): string {
   return (
@@ -15,29 +21,13 @@ function getIp(req: NextRequest): string {
   );
 }
 
-function isBlocked(ip: string): boolean {
-  const entry = attempts.get(ip);
-  if (!entry) return false;
-  if (Date.now() > entry.resetAt) { attempts.delete(ip); return false; }
-  return entry.count >= MAX_ATTEMPTS;
-}
-
-function recordFailure(ip: string): void {
-  const now = Date.now();
-  const entry = attempts.get(ip);
-  if (!entry || now > entry.resetAt) {
-    attempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-  } else {
-    entry.count++;
-  }
-}
-
 export async function POST(req: NextRequest) {
   const ip = getIp(req);
 
-  if (isBlocked(ip)) {
+  const failures = await countRecentLoginFailures(ip, WINDOW_MINUTES);
+  if (failures >= MAX_ATTEMPTS) {
     return NextResponse.json(
-      { error: 'Çok fazla hatalı deneme. 15 dakika sonra tekrar deneyin.' },
+      { error: `Çok fazla hatalı deneme. ${WINDOW_MINUTES} dakika sonra tekrar deneyin.` },
       { status: 429 }
     );
   }
@@ -49,11 +39,20 @@ export async function POST(req: NextRequest) {
 
   const user = await getUserByUsername(username);
   if (!user || !verifyPassword(password, user.password_hash)) {
-    recordFailure(ip);
-    return NextResponse.json({ error: 'Kullanıcı adı veya şifre hatalı' }, { status: 401 });
+    await recordLoginFailure(ip, String(username).slice(0, 100));
+    const kalan = Math.max(0, MAX_ATTEMPTS - (failures + 1));
+    return NextResponse.json(
+      {
+        error: kalan > 0
+          ? `Kullanıcı adı veya şifre hatalı. ${kalan} deneme hakkınız kaldı.`
+          : `Kullanıcı adı veya şifre hatalı. Hesap ${WINDOW_MINUTES} dakika kilitlendi.`,
+      },
+      { status: 401 }
+    );
   }
 
-  attempts.delete(ip);
+  await clearLoginFailures(ip);
+  cleanupLoginAttempts().catch(() => {});
 
   const token = createToken(user.id, user.username);
   const res = NextResponse.json({ success: true });

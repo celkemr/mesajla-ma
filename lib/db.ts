@@ -126,6 +126,14 @@ async function ensureInit(): Promise<void> {
       FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
     );
 
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      id TEXT PRIMARY KEY,
+      ip_address TEXT NOT NULL,
+      username TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address, created_at);
     CREATE INDEX IF NOT EXISTS idx_visitors_site_first ON visitors(site_id, first_seen);
     CREATE INDEX IF NOT EXISTS idx_visitors_site_last ON visitors(site_id, last_seen);
     CREATE INDEX IF NOT EXISTS idx_visitors_last_seen ON visitors(last_seen);
@@ -689,6 +697,38 @@ export async function createProactiveMessage(siteId: string, sessionId: string, 
   await updateConversationMode(conv.id, 'human');
   await addChatMessage(conv.id, 'assistant', message);
   return conv;
+}
+
+// --- Giriş denemesi sınırlama (brute-force) ---
+// Sayaç veritabanında tutuluyor; Vercel istekleri farklı sunuculara dağıttığı için
+// bellekte tutmak koruma sağlamıyordu.
+
+export async function countRecentLoginFailures(ip: string, windowMinutes: number): Promise<number> {
+  await ensureInit();
+  const c = getClient();
+  const res = await c.execute({
+    sql: `SELECT COUNT(*) AS c FROM login_attempts WHERE ip_address = ? AND created_at > datetime('now', '-${Math.floor(windowMinutes)} minutes')`,
+    args: [ip],
+  });
+  return Number(res.rows[0]?.c ?? 0);
+}
+
+export async function recordLoginFailure(ip: string, username?: string) {
+  await ensureInit();
+  await run('INSERT INTO login_attempts (id, ip_address, username) VALUES (?, ?, ?)', [
+    uuidv4(),
+    ip,
+    username ?? null,
+  ]);
+}
+
+export async function clearLoginFailures(ip: string) {
+  await ensureInit();
+  await run('DELETE FROM login_attempts WHERE ip_address = ?', [ip]);
+}
+
+export async function cleanupLoginAttempts() {
+  await run("DELETE FROM login_attempts WHERE created_at < datetime('now', '-1 day')");
 }
 
 // DİKKAT: Buradaki pencere istatistiklerin kapsamını belirler. Eskiden 30 dakikaydı
