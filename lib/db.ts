@@ -632,14 +632,19 @@ export async function getActiveVisitors(siteId?: string, userId?: string) {
 export async function getVisitorStats(userId?: string, siteId?: string, days: number = 7) {
   await ensureInit();
   const c = getClient();
-  const dayFilter = `-${days} days`;
+  // SQL'e gömüldüğü için tam sayıya zorla (enjeksiyon önlemi)
+  const safeDays = Math.max(1, Math.min(Math.floor(Number(days)) || 7, 365));
+  const dayFilter = `-${safeDays} days`;
 
   if (siteId) {
-    const args: InValue[] = [siteId];
+    // Süper admin (userId undefined) tüm siteleri görebilir; diğer kullanıcılar
+    // yalnızca kendi sitelerini — aksi halde başka kiracının verisi sızar.
+    const ownerFilter = userId ? ' AND s.user_id = ?' : '';
+    const args: InValue[] = userId ? [siteId, userId] : [siteId];
     const [todayCount, topCountries, hourlyData] = await Promise.all([
-      c.execute({ sql: "SELECT COUNT(*) as count FROM visitors WHERE site_id = ? AND first_seen > datetime('now', 'start of day')", args }),
-      c.execute({ sql: `SELECT country_code, COUNT(*) as count FROM visitors WHERE site_id = ? AND first_seen > datetime('now', '${dayFilter}') AND country_code IS NOT NULL GROUP BY country_code ORDER BY count DESC LIMIT 5`, args }),
-      c.execute({ sql: "SELECT CAST(strftime('%H', last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors WHERE site_id = ? AND last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour", args }),
+      c.execute({ sql: `SELECT COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE v.site_id = ?${ownerFilter} AND v.first_seen > datetime('now', 'start of day')`, args }),
+      c.execute({ sql: `SELECT v.country_code, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE v.site_id = ?${ownerFilter} AND v.first_seen > datetime('now', '${dayFilter}') AND v.country_code IS NOT NULL GROUP BY v.country_code ORDER BY count DESC LIMIT 5`, args }),
+      c.execute({ sql: `SELECT CAST(strftime('%H', v.last_seen) AS INTEGER) as hour, COUNT(*) as count FROM visitors v JOIN sites s ON s.id = v.site_id WHERE v.site_id = ?${ownerFilter} AND v.last_seen > datetime('now', '-24 hours') GROUP BY hour ORDER BY hour`, args }),
     ]);
     return {
       todayCount: Number(todayCount.rows[0]?.count ?? 0),
