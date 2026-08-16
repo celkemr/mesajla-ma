@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDialog } from '../components/useDialog';
@@ -171,7 +172,7 @@ export default function UsersPage() {
                         </div>
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-sm text-slate-400 hidden sm:table-cell">
-                        {new Date(user.created_at).toLocaleString('tr-TR')}
+                        {parseDbDate(user.created_at).toLocaleString('tr-TR')}
                       </td>
                       <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                         <div className="flex gap-2 justify-end">

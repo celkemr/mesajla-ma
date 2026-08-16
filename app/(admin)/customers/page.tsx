@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDialog } from '../components/useDialog';
@@ -227,7 +228,7 @@ export default function CustomersPage() {
                       )}
                     </td>
                     <td className="px-4 sm:px-6 py-3 sm:py-4 text-slate-400 text-xs whitespace-nowrap hidden lg:table-cell">
-                      {new Date(lead.created_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                      {parseDbDate(lead.created_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                     </td>
                     <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                       <button

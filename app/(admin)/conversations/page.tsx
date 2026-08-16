@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useDialog } from '../components/useDialog';
@@ -125,7 +126,7 @@ export default function ConversationsPage() {
                       </span>
                     </td>
                     <td className="px-4 sm:px-6 py-3 sm:py-4 text-xs text-slate-400 hidden md:table-cell">
-                      {new Date(c.created_at).toLocaleString('tr-TR')}
+                      {parseDbDate(c.created_at).toLocaleString('tr-TR')}
                     </td>
                     <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
                       <div className="flex gap-1.5 justify-end">

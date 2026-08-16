@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -104,7 +105,7 @@ export default function MessageDetailPage({ params }: { params: Promise<{ id: st
               <div className="flex items-center gap-2 mt-2 flex-wrap">
                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${s.color}`}>{s.label}</span>
                 <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{message.site_name}</span>
-                <span className="text-xs text-slate-400">{new Date(message.created_at).toLocaleString('tr-TR')}</span>
+                <span className="text-xs text-slate-400">{parseDbDate(message.created_at).toLocaleString('tr-TR')}</span>
               </div>
             </div>
           </div>
@@ -155,7 +156,7 @@ export default function MessageDetailPage({ params }: { params: Promise<{ id: st
             <div key={reply.id} className="bg-blue-50 border border-blue-100 rounded-xl p-4 ml-8">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-xs text-white font-bold">S</div>
-                <span className="text-xs text-slate-500">Siz · {new Date(reply.created_at).toLocaleString('tr-TR')}</span>
+                <span className="text-xs text-slate-500">Siz · {parseDbDate(reply.created_at).toLocaleString('tr-TR')}</span>
               </div>
               <p className="text-sm text-slate-700 whitespace-pre-wrap">{reply.content}</p>
             </div>

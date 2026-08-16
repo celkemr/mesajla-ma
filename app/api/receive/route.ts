@@ -55,22 +55,17 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Preflight'ta tarayıcı x-api-key göndermez, bu yüzden burada site doğrulaması
+// yapılamaz. Origin'i olduğu gibi onaylıyoruz; asıl yetki kontrolü POST içinde
+// yapılıyor (origin site domain'iyle eşleşmezse 403).
 export async function OPTIONS(req: NextRequest) {
-  const origin = req.headers.get('origin');
-  const apiKey = req.headers.get('x-api-key') || req.nextUrl.searchParams.get('api_key');
-  let allowedOrigin = 'null';
-
-  if (apiKey) {
-    const site = await getSiteByApiKey(apiKey);
-    if (site && origin && isAllowedOrigin(origin, site.domain)) {
-      allowedOrigin = origin;
-    }
-  }
-
+  const origin = req.headers.get('origin') || '*';
   return new NextResponse(null, {
     status: 204,
     headers: {
-      'Access-Control-Allow-Origin': allowedOrigin,
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Max-Age': '86400',
+      Vary: 'Origin',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
     },

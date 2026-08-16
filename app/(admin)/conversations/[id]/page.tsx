@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useDialog } from '../../components/useDialog';
@@ -155,7 +156,7 @@ export default function ConversationDetailPage() {
             {conv.visitor_phone && <span>📞 {conv.visitor_phone}</span>}
             {conv.visitor_email && <span>✉️ {conv.visitor_email}</span>}
             <span>Site: {conv.site_name}</span>
-            <span>{new Date(conv.created_at).toLocaleString('tr-TR')}</span>
+            <span>{parseDbDate(conv.created_at).toLocaleString('tr-TR')}</span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
               conv.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
             }`}>
@@ -225,7 +226,7 @@ export default function ConversationDetailPage() {
                 <div className="whitespace-pre-wrap">{msg.content}</div>
               )}
               <div className="text-xs mt-1 opacity-50 text-right">
-                {new Date(msg.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                {parseDbDate(msg.created_at).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
               </div>
             </div>
           </div>

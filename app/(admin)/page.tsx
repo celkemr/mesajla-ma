@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
@@ -260,7 +261,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="text-right shrink-0">
                     <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">{msg.site_name}</span>
-                    <p className="text-[10px] text-slate-400 mt-1">{new Date(msg.created_at).toLocaleDateString('tr-TR')}</p>
+                    <p className="text-[10px] text-slate-400 mt-1">{parseDbDate(msg.created_at).toLocaleDateString('tr-TR')}</p>
                   </div>
                 </Link>
               ))}

@@ -1,4 +1,5 @@
 'use client';
+import { parseDbDate } from '@/lib/date';
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
@@ -151,7 +152,7 @@ function MessagesContent() {
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{msg.site_name}</span>
                       <span className="text-xs text-slate-400">
-                        {new Date(msg.created_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                        {parseDbDate(msg.created_at).toLocaleString('tr-TR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     </div>
                   </div>
