@@ -638,6 +638,71 @@ export async function upsertVisitor(data: {
   }
 }
 
+// --- Raporlar ---
+
+// Dönüşüm hunisi: ziyaretçi -> widget açıldı -> form -> yazdı -> lead -> müşteri
+export async function getFunnel(opts: { userId?: string; siteId?: string; days?: number } = {}) {
+  await ensureInit();
+  const c = getClient();
+  const gun = Math.max(1, Math.min(Math.floor(Number(opts.days) || 30), 365));
+  const pencere = `-${gun} days`;
+
+  const kosul = (alias: string) => {
+    const parcalar: string[] = [];
+    if (opts.userId) parcalar.push(`s.user_id = '${opts.userId.replace(/'/g, "''")}'`);
+    if (opts.siteId) parcalar.push(`${alias}.site_id = '${opts.siteId.replace(/'/g, "''")}'`);
+    return parcalar.length ? ' AND ' + parcalar.join(' AND ') : '';
+  };
+
+  const [ziyaretci, acildi, form, yazdi, lead, musteri] = await Promise.all([
+    c.execute(`SELECT COUNT(*) n FROM visitors v JOIN sites s ON s.id=v.site_id WHERE v.first_seen > datetime('now','${pencere}')${kosul('v')}`),
+    c.execute(`SELECT COUNT(*) n FROM conversations o JOIN sites s ON s.id=o.site_id WHERE o.created_at > datetime('now','${pencere}')${kosul('o')}`),
+    c.execute(`SELECT COUNT(*) n FROM conversations o JOIN sites s ON s.id=o.site_id WHERE o.created_at > datetime('now','${pencere}')${kosul('o')} AND (o.visitor_name IS NOT NULL OR o.visitor_email IS NOT NULL OR o.visitor_phone IS NOT NULL)`),
+    c.execute(`SELECT COUNT(*) n FROM conversations o JOIN sites s ON s.id=o.site_id WHERE o.created_at > datetime('now','${pencere}')${kosul('o')} AND EXISTS (SELECT 1 FROM chat_messages m WHERE m.conversation_id=o.id AND m.role='user')`),
+    c.execute(`SELECT COUNT(*) n FROM leads l JOIN sites s ON s.id=l.site_id WHERE l.created_at > datetime('now','${pencere}')${kosul('l')}`),
+    c.execute(`SELECT COUNT(*) n FROM leads l JOIN sites s ON s.id=l.site_id WHERE l.created_at > datetime('now','${pencere}')${kosul('l')} AND l.status='converted'`),
+  ]);
+
+  const say = (r: { rows: Record<string, unknown>[] }) => Number(r.rows[0]?.n ?? 0);
+  return {
+    gun,
+    ziyaretci: say(ziyaretci),
+    widgetAcildi: say(acildi),
+    formDolduruldu: say(form),
+    mesajYazdi: say(yazdi),
+    lead: say(lead),
+    musteriOldu: say(musteri),
+  };
+}
+
+// Trafik kaynakları: hangi referrer ziyaretçi getiriyor ve kaçı lead'e dönüyor.
+// Ziyaretçi ile konuşma session_id + site_id üzerinden eşleşiyor.
+export async function getTrafficSources(opts: { userId?: string; siteId?: string; days?: number } = {}) {
+  await ensureInit();
+  const gun = Math.max(1, Math.min(Math.floor(Number(opts.days) || 30), 365));
+  const params: InValue[] = [];
+  let filtre = '';
+  if (opts.userId) { filtre += ' AND s.user_id = ?'; params.push(opts.userId); }
+  if (opts.siteId) { filtre += ' AND v.site_id = ?'; params.push(opts.siteId); }
+
+  return all<{ kaynak: string; ziyaretci: number; lead: number }>(
+    `SELECT
+       COALESCE(NULLIF(v.referrer,''), '(doğrudan)') AS kaynak,
+       COUNT(*) AS ziyaretci,
+       SUM(CASE WHEN EXISTS (
+         SELECT 1 FROM conversations o JOIN leads l ON l.conversation_id = o.id
+         WHERE o.session_id = v.session_id AND o.site_id = v.site_id
+       ) THEN 1 ELSE 0 END) AS lead
+     FROM visitors v
+     JOIN sites s ON s.id = v.site_id
+     WHERE v.first_seen > datetime('now', '-${gun} days')${filtre}
+     GROUP BY kaynak
+     ORDER BY ziyaretci DESC
+     LIMIT 15`,
+    params,
+  );
+}
+
 export async function getActiveVisitors(siteId?: string, userId?: string) {
   let query = `
     SELECT v.*, s.name as site_name, s.domain as site_domain, c.id as conversation_id
