@@ -125,6 +125,11 @@ async function ensureInit(): Promise<void> {
       FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE,
       FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
     );
+
+    CREATE INDEX IF NOT EXISTS idx_visitors_site_first ON visitors(site_id, first_seen);
+    CREATE INDEX IF NOT EXISTS idx_visitors_site_last ON visitors(site_id, last_seen);
+    CREATE INDEX IF NOT EXISTS idx_visitors_last_seen ON visitors(last_seen);
+    CREATE INDEX IF NOT EXISTS idx_visitors_session ON visitors(site_id, session_id);
   `);
 
   // Mevcut tablolara widget kolonlarını ekle (migration)
@@ -686,8 +691,12 @@ export async function createProactiveMessage(siteId: string, sessionId: string, 
   return conv;
 }
 
+// DİKKAT: Buradaki pencere istatistiklerin kapsamını belirler. Eskiden 30 dakikaydı
+// ve tablo 30 dakikadan fazlasını hiç tutmadığı için 7/30 günlük ülke ve trafik
+// istatistikleri boş çıkıyordu. "Aktif ziyaretçi" görünümü bu silmeye bağlı değil;
+// o sorgu zaten last_seen > -3 dakika ile filtreliyor.
 export async function cleanupVisitors() {
-  await run("DELETE FROM visitors WHERE last_seen < datetime('now', '-30 minutes')");
+  await run("DELETE FROM visitors WHERE last_seen < datetime('now', '-90 days')");
 }
 
 // --- Stats ---
