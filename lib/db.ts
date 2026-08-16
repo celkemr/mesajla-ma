@@ -356,7 +356,9 @@ export async function deleteSite(id: string) {
 }
 
 // --- Messages ---
-export async function getAllMessages(filters: { siteId?: string; status?: string; search?: string; userId?: string } = {}) {
+export async function getAllMessages(
+  filters: { siteId?: string; status?: string; search?: string; userId?: string; limit?: number; offset?: number } = {},
+) {
   let query = `
     SELECT m.*, s.name as site_name, s.domain as site_domain,
     (SELECT COUNT(*) FROM replies r WHERE r.message_id = m.id) as reply_count
@@ -371,7 +373,30 @@ export async function getAllMessages(filters: { siteId?: string; status?: string
     params.push(...Array(4).fill(`%${filters.search}%`));
   }
   query += ' ORDER BY m.created_at DESC';
+  // Sayfalama: limit verilmezse eskisi gibi tamamı döner (mevcut çağrılar bozulmasın).
+  if (filters.limit != null) {
+    const limit = Math.max(1, Math.min(Math.floor(Number(filters.limit)), 200));
+    const offset = Math.max(0, Math.floor(Number(filters.offset) || 0));
+    query += ` LIMIT ${limit} OFFSET ${offset}`;
+  }
   return all(query, params);
+}
+
+// Aynı filtrelerle toplam kayıt sayısı (sayfalama için)
+export async function countAllMessages(
+  filters: { siteId?: string; status?: string; search?: string; userId?: string } = {},
+) {
+  let query = 'SELECT COUNT(*) AS n FROM messages m JOIN sites s ON s.id = m.site_id WHERE 1=1';
+  const params: InValue[] = [];
+  if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
+  if (filters.siteId) { query += ' AND m.site_id = ?'; params.push(filters.siteId); }
+  if (filters.status) { query += ' AND m.status = ?'; params.push(filters.status); }
+  if (filters.search) {
+    query += ' AND (m.sender_name LIKE ? OR m.sender_email LIKE ? OR m.subject LIKE ? OR m.content LIKE ?)';
+    params.push(...Array(4).fill(`%${filters.search}%`));
+  }
+  const r = await one<{ n: number }>(query, params);
+  return Number(r?.n ?? 0);
 }
 
 export async function getMessageById(id: string) {

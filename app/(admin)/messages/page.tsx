@@ -38,20 +38,44 @@ function MessagesContent() {
   const [sites, setSites] = useState<Site[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [toplam, setToplam] = useState(0);
+  const [dahaYukleniyor, setDahaYukleniyor] = useState(false);
 
   const siteId = searchParams.get('site') || '';
   const status = searchParams.get('status') || '';
 
-  const fetchMessages = useCallback(() => {
-    setLoading(true);
+  // Sayfalama: ilk yüklemede son 50 mesaj, "daha fazla" ile 50'şer ekleniyor.
+  const sorguKur = useCallback((offset: number) => {
     const params = new URLSearchParams();
     if (siteId) params.set('site_id', siteId);
     if (status) params.set('status', status);
     if (search) params.set('search', search);
-    fetch(`/api/messages?${params}`)
-      .then((r) => r.json())
-      .then((data) => { setMessages(data.messages); setLoading(false); });
+    params.set('limit', String(SAYFA));
+    params.set('offset', String(offset));
+    return params;
   }, [siteId, status, search]);
+
+  const fetchMessages = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/messages?${sorguKur(0)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setMessages(data.messages);
+        setToplam(data.pagination?.total ?? data.messages.length);
+        setLoading(false);
+      });
+  }, [sorguKur]);
+
+  function dahaFazla() {
+    setDahaYukleniyor(true);
+    fetch(`/api/messages?${sorguKur(messages.length)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        setMessages((onceki) => [...onceki, ...(data.messages || [])]);
+        setToplam(data.pagination?.total ?? 0);
+      })
+      .finally(() => setDahaYukleniyor(false));
+  }
 
   useEffect(() => {
     fetch('/api/sites').then((r) => r.json()).then(setSites);
@@ -71,7 +95,9 @@ function MessagesContent() {
     <div className="p-4 sm:p-6 md:p-8">
       <div className="mb-4 sm:mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-slate-800">Mesajlar</h2>
-        <p className="text-slate-500 mt-1">{messages.length} mesaj listeleniyor</p>
+        <p className="text-slate-500 mt-1">
+          {toplam > messages.length ? `${toplam} mesajın ${messages.length} tanesi` : `${messages.length} mesaj`} listeleniyor
+        </p>
       </div>
 
       {/* Filters */}
@@ -161,10 +187,23 @@ function MessagesContent() {
             })}
           </div>
         )}
+        {!loading && messages.length < toplam && (
+          <div className="p-4 border-t border-slate-100 text-center">
+            <button
+              onClick={dahaFazla}
+              disabled={dahaYukleniyor}
+              className="text-sm border border-slate-200 text-slate-600 px-4 py-2 rounded-lg hover:bg-slate-50 active:bg-slate-100 disabled:opacity-50 transition-colors"
+            >
+              {dahaYukleniyor ? 'Yükleniyor…' : `Daha fazla göster (${toplam - messages.length} kaldı)`}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
+const SAYFA = 50;
 
 export default function MessagesPage() {
   return (
