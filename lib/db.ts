@@ -248,6 +248,7 @@ export interface Site {
   hubspot_api_key: string | null;
   pipedrive_api_key: string | null;
   pipedrive_domain: string | null;
+  user_id: string | null;
   created_at: string;
 }
 
@@ -509,9 +510,15 @@ export interface Lead {
   site_name?: string;
 }
 
-export async function getAllLeads(filters: { siteId?: string; status?: string; userId?: string } = {}) {
+export async function getAllLeads(
+  filters: { siteId?: string; status?: string; userId?: string; followUp?: boolean } = {},
+) {
+  // message_count: müşteri adayının kaç mesaj yazdığı. 0 ise formu doldurup
+  // hiç yazmadan çıkmış demektir — bunlar geri dönülmesi gereken en sıcak grup.
   let query = `
-    SELECT l.*, s.name as site_name
+    SELECT l.*, s.name as site_name,
+      (SELECT COUNT(*) FROM chat_messages m
+        WHERE m.conversation_id = l.conversation_id AND m.role = 'user') AS message_count
     FROM leads l
     JOIN sites s ON s.id = l.site_id
     WHERE 1=1
@@ -520,6 +527,10 @@ export async function getAllLeads(filters: { siteId?: string; status?: string; u
   if (filters.userId) { query += ' AND s.user_id = ?'; params.push(filters.userId); }
   if (filters.siteId) { query += ' AND l.site_id = ?'; params.push(filters.siteId); }
   if (filters.status) { query += ' AND l.status = ?'; params.push(filters.status); }
+  if (filters.followUp) {
+    query += ` AND l.status = 'new' AND (SELECT COUNT(*) FROM chat_messages m
+                 WHERE m.conversation_id = l.conversation_id AND m.role = 'user') = 0`;
+  }
   query += ' ORDER BY l.created_at DESC';
   return all<Lead>(query, params);
 }

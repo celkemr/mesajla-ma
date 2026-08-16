@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSiteByApiKey, getOrCreateConversation, updateConversationVisitor } from '@/lib/db';
+import {
+  getSiteByApiKey,
+  getOrCreateConversation,
+  updateConversationVisitor,
+  getLeadByConversation,
+  createLead,
+} from '@/lib/db';
+import { sendTelegramMessage, sendWebhook } from '@/lib/integrations';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +34,58 @@ export async function POST(req: NextRequest) {
     visitor_phone: visitorPhone,
   });
 
+  // Formu doldurup hiç yazmadan çıkanlar da müşteri adayıdır. Lead oluşturmak
+  // eskiden yalnızca ilk mesaj yazıldığında tetikleniyordu, bu yüzden telefon/
+  // e-posta bırakıp ayrılan ziyaretçiler hiçbir yerde görünmüyordu.
+  if (visitorName || visitorEmail || visitorPhone) {
+    try {
+      const mevcut = await getLeadByConversation(conversation.id);
+      if (!mevcut) {
+        await createLead({
+          siteId: site.id,
+          conversationId: conversation.id,
+          name: visitorName || undefined,
+          email: visitorEmail || undefined,
+          phone: visitorPhone || undefined,
+        });
+
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || '';
+        const link = appUrl ? `\n🔗 <a href="${appUrl}/conversations/${conversation.id}">Konuşmaya git</a>` : '';
+
+        if (site.telegram_bot_token && site.telegram_chat_id) {
+          sendTelegramMessage(
+            site.telegram_bot_token,
+            site.telegram_chat_id,
+            `📝 <b>Yeni Form Kaydı</b>\n` +
+            `📌 Site: ${site.name}\n` +
+            `👤 ${visitorName || 'İsimsiz'}\n` +
+            (visitorPhone ? `📞 ${visitorPhone}\n` : '') +
+            (visitorEmail ? `✉️ ${visitorEmail}\n` : '') +
+            `⚠️ Henüz mesaj yazmadı — geri dönülmeli.` +
+            link,
+          ).catch(console.error);
+        }
+
+        if (site.webhook_url) {
+          sendWebhook(site.webhook_url, {
+            event: 'lead',
+            source: 'prechat_form',
+            conversationId: conversation.id,
+            siteId: site.id,
+            siteName: site.name,
+            name: visitorName || null,
+            email: visitorEmail || null,
+            phone: visitorPhone || null,
+            timestamp: new Date().toISOString(),
+          }).catch(console.error);
+        }
+      }
+    } catch (err) {
+      // Lead oluşturulamazsa ziyaretçi akışı bozulmasın
+      console.error('visitor-info lead hatası', err);
+    }
+  }
+
   return NextResponse.json({ ok: true }, { headers: corsHeaders });
 }
 
@@ -36,6 +95,8 @@ export async function OPTIONS(req: NextRequest) {
     status: 204,
     headers: {
       'Access-Control-Allow-Origin': origin,
+      'Access-Control-Max-Age': '86400',
+      Vary: 'Origin',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, x-api-key',
     },
