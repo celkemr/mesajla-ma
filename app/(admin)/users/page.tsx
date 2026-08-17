@@ -26,6 +26,7 @@ export default function UsersPage() {
   const [adding, setAdding] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [yeniSifre, setYeniSifre] = useState<{ username: string; password: string } | null>(null);
 
   function load() {
     fetch('/api/users').then((r) => r.json()).then(setUsers);
@@ -63,6 +64,37 @@ export default function UsersPage() {
     load();
   }
 
+  // Rastgele şifre üretip bir kez gösterir
+  async function resetPassword(id: string, name: string) {
+    if (!(await confirm(
+      `"${name}" için yeni bir rastgele şifre üretilecek. Eski şifresi geçersiz olacak. Devam edilsin mi?`,
+      { variant: 'info', confirmLabel: 'Evet, Sıfırla' },
+    ))) return;
+
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reset' }),
+    });
+    const d = await res.json();
+    if (!res.ok) { await showAlert(`❌ ${d.error || 'Sıfırlanamadı'}`); return; }
+    setYeniSifre({ username: d.username, password: d.password });
+  }
+
+  // Süper adminin elle şifre belirlemesi
+  async function sifreBelirle(id: string, name: string) {
+    const girilen = window.prompt(`"${name}" için yeni şifre (en az 8 karakter):`);
+    if (girilen === null) return;
+    const res = await fetch(`/api/users/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ newPassword: girilen }),
+    });
+    const d = await res.json();
+    if (!res.ok) { await showAlert(`❌ ${d.error || 'Değiştirilemedi'}`); return; }
+    await showAlert(`✅ "${d.username}" kullanıcısının şifresi değiştirildi.`);
+  }
+
   async function connectUser(userId: string, targetUsername: string) {
     if (!(await confirm(`"${targetUsername}" kullanıcısının sistemine bağlanmak istiyor musunuz?`, { variant: 'info', confirmLabel: 'Evet, Bağlan' }))) return;
     setConnecting(userId);
@@ -86,6 +118,35 @@ export default function UsersPage() {
   return (
     <div>
       {dialog}
+
+      {/* Üretilen şifre - bir kez gösterilir, kapatılınca kaybolur */}
+      {yeniSifre && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5">
+            <p className="text-sm font-semibold text-slate-800">Yeni şifre oluşturuldu</p>
+            <p className="text-xs text-slate-500 mt-1">
+              <strong>{yeniSifre.username}</strong> kullanıcısına iletin. Bu şifre bir daha gösterilmeyecek.
+            </p>
+            <div className="mt-3 flex items-center gap-2">
+              <code className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono break-all">
+                {yeniSifre.password}
+              </code>
+              <button
+                onClick={() => navigator.clipboard?.writeText(yeniSifre.password)}
+                className="text-xs border border-slate-200 text-slate-600 px-3 py-2 rounded-lg hover:bg-slate-50 transition-colors shrink-0"
+              >
+                Kopyala
+              </button>
+            </div>
+            <button
+              onClick={() => setYeniSifre(null)}
+              className="mt-4 w-full bg-indigo-500 text-white text-sm py-2 rounded-lg hover:bg-indigo-600 transition-colors"
+            >
+              Kaydettim, kapat
+            </button>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-slate-200/80 px-4 sm:px-6 md:px-8 py-4 sm:py-5 flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -186,6 +247,25 @@ export default function UsersPage() {
                             >
                               {connecting === user.id ? '...' : '⚡ Bağlan'}
                             </button>
+                          )}
+                          {/* Şifre işlemleri - sadece süper admin, kendisi hariç */}
+                          {isSuperAdmin && !isSuper && (
+                            <>
+                              <button
+                                onClick={() => sifreBelirle(user.id, user.username)}
+                                title="Bu kullanıcıya belirlediğin şifreyi ata"
+                                className="text-xs font-medium border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+                              >
+                                Şifre Belirle
+                              </button>
+                              <button
+                                onClick={() => resetPassword(user.id, user.username)}
+                                title="Rastgele yeni şifre üret"
+                                className="text-xs font-medium border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg hover:bg-amber-50 transition-colors"
+                              >
+                                Sıfırla
+                              </button>
+                            </>
                           )}
                           {/* Süper admin silinemez */}
                           {!isSuper && (
