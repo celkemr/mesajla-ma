@@ -167,6 +167,7 @@ async function ensureInit(): Promise<void> {
     "ALTER TABLE conversations ADD COLUMN summary TEXT",
     "ALTER TABLE chat_messages ADD COLUMN file_url TEXT",
     "ALTER TABLE sites ADD COLUMN user_id TEXT",
+    "ALTER TABLE users ADD COLUMN email TEXT",
   ];
   for (const sql of migrations) {
     try { await c.execute(sql); } catch { /* kolon zaten varsa yok say */ }
@@ -597,15 +598,45 @@ export async function assignNullSitesToUser(username: string): Promise<number> {
 
 // --- Users ---
 export async function getAllUsers() {
-  return all('SELECT id, username, created_at FROM users ORDER BY created_at ASC');
+  return all('SELECT id, username, email, created_at FROM users ORDER BY created_at ASC');
 }
 
 export async function getUserByUsername(username: string) {
-  return one<{ id: string; username: string; password_hash: string }>('SELECT * FROM users WHERE username = ?', [username]);
+  return one<{ id: string; username: string; email: string | null; password_hash: string }>(
+    'SELECT * FROM users WHERE username = ?', [username]);
 }
 
 export async function getUserById(id: string) {
-  return one<{ id: string; username: string }>('SELECT id, username FROM users WHERE id = ?', [id]);
+  return one<{ id: string; username: string; email: string | null }>(
+    'SELECT id, username, email FROM users WHERE id = ?', [id]);
+}
+
+// Kendi profilini güncelleme. Şifre doğrulaması çağıran tarafta yapılır.
+export async function updateUserProfile(
+  id: string,
+  data: { username?: string; email?: string | null; password?: string },
+) {
+  const alanlar: string[] = [];
+  const params: InValue[] = [];
+  if (data.username !== undefined) { alanlar.push('username = ?'); params.push(data.username); }
+  if (data.email !== undefined) { alanlar.push('email = ?'); params.push(data.email); }
+  if (data.password) { alanlar.push('password_hash = ?'); params.push(hashPassword(data.password)); }
+  if (alanlar.length === 0) return;
+  params.push(id);
+  await run(`UPDATE users SET ${alanlar.join(', ')} WHERE id = ?`, params);
+}
+
+// Kullanıcı adı başkası tarafından alınmış mı (kendisi hariç)
+export async function usernameTaken(username: string, exceptId: string): Promise<boolean> {
+  const r = await one<{ id: string }>(
+    'SELECT id FROM users WHERE lower(username) = lower(?) AND id <> ?', [username, exceptId]);
+  return !!r;
+}
+
+// Şifre doğrulaması için hash'i de içeren kayıt
+export async function getUserWithHash(id: string) {
+  return one<{ id: string; username: string; email: string | null; password_hash: string }>(
+    'SELECT id, username, email, password_hash FROM users WHERE id = ?', [id]);
 }
 
 export async function createUser(username: string, password: string) {
